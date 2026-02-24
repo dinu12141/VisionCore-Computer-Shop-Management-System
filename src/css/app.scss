@@ -1,0 +1,684 @@
+// ============================================================
+// VISION CORE ERP — Premium Design System v2.0
+// Inspired by: Stripe, Linear, Notion, Microsoft Fluent
+// ============================================================
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+// ─── Design Tokens ───────────────────────────────────────────
+:root {
+  // Primary Brand
+  --v-primary: #4f46e5;
+  --v-primary-soft: rgba(79, 70, 229, 0.1);
+  --v-primary-glow: rgba(79, 70, 229, 0.25);
+
+  // Semantic
+  --v-success: #10b981;
+  --v-success-soft: rgba(16, 185, 129, 0.1);
+  --v-warning: #f59e0b;
+  --v-warning-soft: rgba(245, 158, 11, 0.1);
+  --v-danger: #ef4444;
+  --v-danger-soft: rgba(239, 68, 68, 0.1);
+  --v-info: #06b6d4;
+  --v-info-soft: rgba(6, 182, 212, 0.1);
+  --v-purple: #8b5cf6;
+  --v-purple-soft: rgba(139, 92, 246, 0.1);
+
+  // Light Mode Surfaces
+  --v-bg: #f8fafc;
+  --v-surface: #ffffff;
+  --v-surface-2: #f1f5f9;
+  --v-border: rgba(15, 23, 42, 0.08);
+  --v-border-strong: rgba(15, 23, 42, 0.16);
+  --v-text-1: #0f172a;
+  --v-text-2: #475569;
+  --v-text-3: #94a3b8;
+
+  // Sidebar
+  --v-sidebar-bg: #ffffff;
+  --v-sidebar-w: 252px;
+
+  // Shadows
+  --v-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --v-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --v-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --v-shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --v-shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+  --v-shadow-primary: 0 8px 24px rgba(79, 70, 229, 0.3);
+
+  // Radii
+  --v-r-xs: 6px;
+  --v-r-sm: 8px;
+  --v-r-md: 12px;
+  --v-r-lg: 16px;
+  --v-r-xl: 20px;
+  --v-r-full: 9999px;
+
+  // Transitions
+  --v-t-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --v-t-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --v-t-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// ─── Dark Mode Tokens ─────────────────────────────────────────
+body.body--dark {
+  --v-bg: #0b0f1a;
+  --v-surface: #131929;
+  --v-surface-2: #1a2236;
+  --v-border: rgba(255, 255, 255, 0.08);
+  --v-border-strong: rgba(255, 255, 255, 0.14);
+  --v-text-1: #f1f5f9;
+  --v-text-2: #94a3b8;
+  --v-text-3: #475569;
+  --v-sidebar-bg: #0f1624;
+  --v-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --v-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --v-shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.6);
+}
+
+// ─── Base Reset ───────────────────────────────────────────────
+html,
+body {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background-color: var(--v-bg);
+  color: var(--v-text-1);
+}
+
+// ─── Body Backgrounds ─────────────────────────────────────────
+body {
+  background-color: var(--v-bg) !important;
+  transition:
+    background-color var(--v-t-slow),
+    color var(--v-t-slow);
+}
+
+body.body--dark {
+  background-color: var(--v-bg) !important;
+  color: var(--v-text-1);
+
+  // Dark mode: q-page backgrounds
+  .q-page.bg-grey-1 {
+    background-color: var(--v-bg) !important;
+  }
+  .q-table.bg-white {
+    background-color: var(--v-surface) !important;
+  }
+  .q-card.bg-white {
+    background-color: var(--v-surface) !important;
+  }
+  .q-tabs.bg-white {
+    background-color: var(--v-surface) !important;
+  }
+
+  .q-card {
+    background-color: var(--v-surface);
+    border-color: var(--v-border);
+  }
+
+  .q-menu {
+    background-color: var(--v-surface) !important;
+    border: 1px solid var(--v-border) !important;
+    box-shadow: var(--v-shadow-lg) !important;
+  }
+
+  .q-table {
+    background-color: var(--v-surface);
+    thead tr th {
+      background-color: var(--v-surface-2) !important;
+      color: var(--v-text-2) !important;
+    }
+    tbody tr:hover td {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+    }
+    tbody tr:nth-child(even) td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .q-field .q-field__control {
+    background-color: var(--v-surface-2) !important;
+  }
+  .border-light {
+    border-color: var(--v-border) !important;
+  }
+  .clickable-rows tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+  }
+  .stats-card {
+    background-color: var(--v-surface) !important;
+  }
+  .category-toggle {
+    background-color: var(--v-surface-2) !important;
+  }
+
+  .q-header {
+    box-shadow: 0 1px 0 var(--v-border);
+  }
+  .q-drawer {
+    box-shadow: 1px 0 0 var(--v-border);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--v-text-1);
+  }
+}
+
+// ─── Scrollbar ────────────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--v-border-strong);
+  border-radius: var(--v-r-full);
+  &:hover {
+    background: var(--v-text-3);
+  }
+}
+
+// ─── Typography Scale ─────────────────────────────────────────
+h1,
+.text-h1 {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+h2,
+.text-h2 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+h3,
+.text-h3 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+h4,
+.text-h4 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+h5,
+.text-h5 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+h6,
+.text-h6 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.text-subtitle1 {
+  font-size: 1rem;
+  line-height: 1.75rem;
+  font-weight: 500;
+}
+.text-subtitle2 {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+}
+.text-body1 {
+  font-size: 0.9375rem;
+  line-height: 1.6rem;
+}
+.text-body2 {
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+.text-caption {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+.text-overline {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+// ─── Global Card ─────────────────────────────────────────────
+.q-card {
+  border-radius: var(--v-r-lg) !important;
+  border: 1px solid var(--v-border);
+  box-shadow: var(--v-shadow-sm);
+  background: var(--v-surface);
+  transition:
+    box-shadow var(--v-t-normal),
+    transform var(--v-t-normal),
+    border-color var(--v-t-normal);
+
+  &.q-card--bordered {
+    border: 1px solid var(--v-border);
+  }
+}
+
+// ─── Tables ───────────────────────────────────────────────────
+.q-table {
+  border-radius: var(--v-r-lg);
+  overflow: hidden;
+  border: 1px solid var(--v-border);
+  background: var(--v-surface);
+
+  // Header
+  thead tr th {
+    background: var(--v-surface-2) !important;
+    color: var(--v-text-2) !important;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--v-border);
+    white-space: nowrap;
+  }
+
+  // Rows
+  tbody tr {
+    transition: background-color var(--v-t-fast);
+
+    td {
+      font-size: 13.5px;
+      color: var(--v-text-1);
+      border-bottom: 1px solid var(--v-border);
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+
+    &:hover td {
+      background-color: var(--v-primary-soft) !important;
+    }
+
+    &:nth-child(even) td {
+      background-color: rgba(15, 23, 42, 0.018);
+    }
+
+    &:last-child td {
+      border-bottom: none;
+    }
+  }
+
+  // Pagination
+  .q-table__bottom {
+    border-top: 1px solid var(--v-border);
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--v-text-2);
+  }
+}
+
+// ─── Buttons ─────────────────────────────────────────────────
+.q-btn {
+  text-transform: none;
+  font-weight: 600;
+  border-radius: var(--v-r-sm);
+  letter-spacing: 0.2px;
+  transition: all var(--v-t-normal) !important;
+
+  &.q-btn--standard:not(.q-btn--round) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--v-shadow-md);
+    }
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  // Primary glow
+  &[class*='bg-primary'],
+  &.bg-indigo-6 {
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    &:hover {
+      box-shadow: var(--v-shadow-primary);
+    }
+  }
+}
+
+// ─── Input Fields ────────────────────────────────────────────
+.q-field {
+  .q-field__control {
+    border-radius: var(--v-r-sm) !important;
+    transition:
+      border-color var(--v-t-fast),
+      box-shadow var(--v-t-fast);
+  }
+
+  &.q-field--focused .q-field__control {
+    border-color: var(--v-primary) !important;
+    box-shadow: 0 0 0 3px var(--v-primary-soft);
+  }
+}
+
+.q-field--outlined .q-field__control {
+  border: 1.5px solid var(--v-border-strong) !important;
+  background: var(--v-surface) !important;
+
+  &:before {
+    border: none !important;
+  }
+}
+
+.q-field--dark .q-field__control {
+  background-color: var(--v-surface-2) !important;
+}
+
+// ─── Chips & Badges ──────────────────────────────────────────
+.q-badge {
+  border-radius: var(--v-r-xs);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  padding: 3px 8px;
+}
+
+.q-chip {
+  border-radius: var(--v-r-full);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────
+.q-tabs {
+  border-radius: var(--v-r-md) var(--v-r-md) 0 0;
+
+  .q-tab {
+    font-weight: 600;
+    font-size: 13.5px;
+    text-transform: none;
+    letter-spacing: 0.1px;
+    border-radius: var(--v-r-sm) var(--v-r-sm) 0 0;
+    transition: color var(--v-t-fast);
+  }
+
+  .q-tab__indicator {
+    height: 2.5px;
+    border-radius: 2px;
+  }
+}
+
+// ─── Dialogs ─────────────────────────────────────────────────
+.q-dialog__inner > div {
+  border-radius: var(--v-r-xl) !important;
+  box-shadow: var(--v-shadow-xl) !important;
+  border: 1px solid var(--v-border);
+}
+
+// ─── Select ──────────────────────────────────────────────────
+.q-menu {
+  border-radius: var(--v-r-md) !important;
+  box-shadow: var(--v-shadow-lg) !important;
+  border: 1px solid var(--v-border) !important;
+}
+
+// ─── Notifications ───────────────────────────────────────────
+.q-notification {
+  border-radius: var(--v-r-md);
+  font-weight: 500;
+  box-shadow: var(--v-shadow-lg);
+}
+
+// ─── Separator ───────────────────────────────────────────────
+.q-separator {
+  background-color: var(--v-border);
+}
+
+// ─── Page Container ──────────────────────────────────────────
+.q-page {
+  padding: 1.5rem;
+}
+
+// ─── Utility Classes ─────────────────────────────────────────
+.v-card-glass {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: var(--v-shadow-sm) !important;
+
+  body.body--dark & {
+    background: rgba(19, 25, 41, 0.75) !important;
+    border: 1px solid var(--v-border) !important;
+  }
+}
+
+.v-gradient-text {
+  background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.v-gradient-border {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--v-primary), var(--v-purple));
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+.clickable-rows tbody tr {
+  cursor: pointer;
+  transition: background-color var(--v-t-fast);
+}
+
+// ─── Status Badges ───────────────────────────────────────────
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--v-r-full);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+
+  &.status-paid {
+    background: var(--v-success-soft);
+    color: #059669;
+  }
+  &.status-pending {
+    background: var(--v-warning-soft);
+    color: #d97706;
+  }
+  &.status-overdue {
+    background: var(--v-danger-soft);
+    color: #dc2626;
+  }
+  &.status-active {
+    background: var(--v-success-soft);
+    color: #059669;
+  }
+  &.status-draft {
+    background: var(--v-border);
+    color: var(--v-text-2);
+  }
+}
+
+// ─── KPI Card Gradient Overrides ─────────────────────────────
+.kpi-gradient-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  color: white !important;
+}
+.kpi-gradient-success {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  color: white !important;
+}
+.kpi-gradient-warning {
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%) !important;
+  color: white !important;
+}
+.kpi-gradient-danger {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+  color: white !important;
+}
+.kpi-gradient-info {
+  background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%) !important;
+  color: white !important;
+}
+.kpi-gradient-purple {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
+  color: white !important;
+}
+
+// ─── Smooth Global Transitions ────────────────────────────────
+*,
+*::before,
+*::after {
+  transition:
+    background-color var(--v-t-normal),
+    border-color var(--v-t-normal),
+    color var(--v-t-normal),
+    box-shadow var(--v-t-normal);
+}
+
+// Exclude from universal transition (performance)
+.q-btn *,
+svg *,
+canvas * {
+  transition: none;
+}
+
+// ─── Page Entrance Animation ─────────────────────────────────
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.q-page > * {
+  animation: fadeSlideIn 0.3s ease forwards;
+}
+
+// ─── Loading Skeleton ────────────────────────────────────────
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.v-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--v-surface-2) 25%,
+    var(--v-border) 50%,
+    var(--v-surface-2) 75%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--v-r-sm);
+}
+
+// ─── Sidebar Active Item Glow ────────────────────────────────
+@keyframes activeGlow {
+  0%,
+  100% {
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
+  }
+}
+
+.q-router-link--exact-active.nav-item {
+  animation: activeGlow 3s ease infinite;
+}
+
+// ─── Float animation for blobs ────────────────────────────────
+@keyframes float {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(60px, 80px) scale(1.1);
+  }
+}
+
+// ─── Hover lift for interactive cards ────────────────────────
+.hover-lift {
+  transition:
+    transform var(--v-t-normal),
+    box-shadow var(--v-t-normal) !important;
+  &:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: var(--v-shadow-lg) !important;
+  }
+}
+
+// ─── Quasar bg override helpers ──────────────────────────────
+.bg-dark {
+  background-color: var(--v-bg) !important;
+}
+.bg-surface {
+  background-color: var(--v-surface) !important;
+}
+
+// ─── Upgrade Quasar inner loading ────────────────────────────
+.q-inner-loading {
+  background: rgba(255, 255, 255, 0.6) !important;
+  body.body--dark & {
+    background: rgba(11, 15, 26, 0.6) !important;
+  }
+  backdrop-filter: blur(4px);
+  border-radius: inherit;
+}
