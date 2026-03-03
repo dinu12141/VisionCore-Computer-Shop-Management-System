@@ -12,9 +12,15 @@
           class="q-mr-sm"
         />
         <div>
-          <h1 class="text-h4 text-weight-bolder q-ma-none text-primary">Billing</h1>
+          <h1 class="text-h4 text-weight-bolder q-ma-none text-primary">
+            {{ form.isVatInvoice ? 'Tax Invoice' : 'Billing' }}
+          </h1>
           <div class="text-subtitle2 text-grey-7">
-            Create professional invoices for your clients
+            {{
+              form.isVatInvoice
+                ? 'Create VAT-inclusive tax invoices'
+                : 'Create professional invoices for your clients'
+            }}
           </div>
         </div>
       </div>
@@ -77,11 +83,14 @@
               <div class="col-12 col-sm-4">
                 <q-input v-model="walkIn.name" label="Customer Name" outlined dense />
               </div>
-              <div class="col-12 col-sm-4">
+              <div class="col-12 col-sm-3">
                 <q-input v-model="walkIn.phone" label="Phone" outlined dense />
               </div>
               <div class="col-12 col-sm-4">
                 <q-input v-model="walkIn.address" label="Address" outlined dense />
+              </div>
+              <div class="col-12 col-sm-5">
+                <q-input v-model="walkIn.tax_number" label="Tax No (VAT/TIN)" outlined dense />
               </div>
             </div>
           </q-card-section>
@@ -148,7 +157,30 @@
               </div>
             </div>
 
-            <q-separator class="q-my-lg" />
+            <q-separator class="q-my-md" />
+
+            <!-- VAT INVOICE TOGGLE -->
+            <div class="row items-center q-mb-sm">
+              <q-toggle
+                v-model="form.isVatInvoice"
+                label="VAT Invoice"
+                color="deep-orange"
+                keep-color
+                class="text-weight-bold"
+              />
+              <q-chip
+                v-if="form.isVatInvoice"
+                dense
+                color="deep-orange"
+                text-color="white"
+                icon="receipt_long"
+                size="sm"
+                class="q-ml-sm"
+                >TAX INVOICE</q-chip
+              >
+            </div>
+
+            <q-separator class="q-my-md" />
 
             <!-- SUMMARY -->
             <div class="q-gutter-y-sm">
@@ -168,12 +200,39 @@
                   @update:model-value="() => {}"
                 />
               </div>
+
+              <!-- NON-VAT: Simple Total -->
               <div
+                v-if="!form.isVatInvoice"
                 class="row justify-between items-center text-h5 text-weight-bolder text-primary q-mt-md"
               >
                 <span>Total</span>
                 <span>{{ formatCurrency(totals.total) }}</span>
               </div>
+
+              <!-- VAT: Full Breakdown -->
+              <template v-if="form.isVatInvoice">
+                <q-separator class="q-my-sm" />
+                <div class="row justify-between items-center text-subtitle1">
+                  <span class="text-grey-7 text-weight-medium">Total (without VAT)</span>
+                  <span class="text-weight-bold">{{ formatCurrency(totals.total) }}</span>
+                </div>
+                <div class="row justify-between items-center text-subtitle1">
+                  <span class="text-deep-orange text-weight-medium">
+                    <q-icon name="percent" size="xs" class="q-mr-xs" />VAT (18%)
+                  </span>
+                  <span class="text-deep-orange text-weight-bold">{{
+                    formatCurrency(totals.vatAmount)
+                  }}</span>
+                </div>
+                <q-separator class="q-my-sm" />
+                <div
+                  class="row justify-between items-center text-h5 text-weight-bolder text-primary q-mt-xs"
+                >
+                  <span>Total (with VAT)</span>
+                  <span>{{ formatCurrency(totals.grandTotal) }}</span>
+                </div>
+              </template>
 
               <q-separator class="q-my-md" />
 
@@ -283,6 +342,7 @@ const walkIn = reactive({
   name: '',
   phone: '',
   address: '',
+  tax_number: '',
 })
 
 const items = ref([
@@ -305,14 +365,22 @@ const form = reactive({
   notes: '',
   isPartPayment: false,
   collection_date: '',
+  isVatInvoice: false,
 })
+
+const VAT_RATE = 0.18
 
 const totals = computed(() => {
   const rawSubtotal = items.value.reduce((acc, cur) => acc + (cur.line_total || 0), 0)
   const subtotal = Math.round(rawSubtotal * 100) / 100
   const total = Math.max(0, Math.round((subtotal - (form.globalDiscount || 0)) * 100) / 100)
-  const balance = Math.round((total - (form.paidAmount || 0)) * 100) / 100
-  return { subtotal, total, balance }
+  // VAT calculations
+  const vatAmount = form.isVatInvoice ? Math.round(total * VAT_RATE * 100) / 100 : 0
+  const grandTotal = form.isVatInvoice ? Math.round((total + vatAmount) * 100) / 100 : total
+  // Balance is always computed against the final payable amount
+  const finalPayable = form.isVatInvoice ? grandTotal : total
+  const balance = Math.round((finalPayable - (form.paidAmount || 0)) * 100) / 100
+  return { subtotal, total, vatAmount, grandTotal, balance }
 })
 
 const selectedCustomerData = computed(() =>
@@ -324,6 +392,63 @@ onMounted(async () => {
   if (route.query.customerId) {
     selectedCustomerId.value = route.query.customerId
     await customerStore.fetchCustomers()
+  }
+
+  // ── Service Job Prefill ────────────────────────────────────────────
+  // When arriving from "Pay → Invoice" on a service job card,
+  // read the prefill data and populate the form automatically.
+  const prefillRaw = sessionStorage.getItem('billing_prefill')
+  if (prefillRaw) {
+    try {
+      const prefill = JSON.parse(prefillRaw)
+      sessionStorage.removeItem('billing_prefill') // consume once
+
+      if (prefill.source === 'service_job') {
+        // Set notes
+        if (prefill.notes) form.notes = prefill.notes
+
+        // Pre-select customer if linked
+        if (prefill.customer_id) {
+          await customerStore.fetchCustomers()
+          selectedCustomerId.value = prefill.customer_id
+        } else if (prefill.customer_name) {
+          // Walk-in with name filled from job
+          walkIn.name = prefill.customer_name || ''
+          walkIn.phone = prefill.customer_phone || ''
+        }
+
+        // Build line items from parts used
+        const lineItems = (prefill.items || []).map((p) => ({
+          description: p.name,
+          item_code: '',
+          qty: Number(p.qty || 1),
+          unit_price: Number(p.price || 0),
+          discount: 0,
+          line_total: Number(p.total || p.price * p.qty || 0),
+          warranty: '',
+        }))
+
+        // Add service charge as a separate line
+        if (prefill.service_total > 0) {
+          lineItems.push({
+            description: prefill.service_label || 'Service Charge',
+            item_code: '',
+            qty: 1,
+            unit_price: Number(prefill.service_total),
+            discount: 0,
+            line_total: Number(prefill.service_total),
+            warranty: '',
+          })
+        }
+
+        // Only replace default empty row if we have real items
+        if (lineItems.length > 0) {
+          items.value = lineItems
+        }
+      }
+    } catch {
+      // ignore malformed prefill
+    }
   }
 })
 
@@ -358,7 +483,8 @@ async function submitInvoice() {
     return
   }
 
-  if (form.paidAmount > totals.value.total) {
+  const maxPayable = form.isVatInvoice ? totals.value.grandTotal : totals.value.total
+  if (form.paidAmount > maxPayable) {
     $q.notify({ type: 'warning', message: 'Paid amount cannot exceed the total invoice amount' })
     return
   }
@@ -380,13 +506,17 @@ async function submitInvoice() {
           address: selectedCustomerData.value.address,
           phone: selectedCustomerData.value.phone,
           code: selectedCustomerData.value.customer_code,
+          tax_number: selectedCustomerData.value.tax_number,
         }
       : {
           name: walkIn.name,
           address: walkIn.address,
           phone: walkIn.phone,
           code: 'WALK-IN',
+          tax_number: walkIn.tax_number,
         }
+
+    const finalTotal = form.isVatInvoice ? totals.value.grandTotal : totals.value.total
 
     const payload = {
       customer_id: selectedCustomerId.value || null,
@@ -394,10 +524,14 @@ async function submitInvoice() {
       payment_type: form.payment_type,
       subtotal: totals.value.subtotal,
       discount: form.globalDiscount,
-      total: totals.value.total,
+      tax: totals.value.vatAmount,
+      total: finalTotal,
       paid_amount: form.paidAmount,
       balance: totals.value.balance,
       customer_snapshot: snapshot,
+      is_vat_invoice: form.isVatInvoice,
+      vat_amount: totals.value.vatAmount,
+      total_before_vat: totals.value.total,
       collection_date: form.isPartPayment || totals.value.balance > 0 ? form.collection_date : null,
     }
 
@@ -423,10 +557,12 @@ async function submitInvoice() {
     walkIn.name = ''
     walkIn.phone = ''
     walkIn.address = ''
+    walkIn.tax_number = ''
     selectedCustomerId.value = null
     form.paidAmount = 0
     form.isPartPayment = false
     form.collection_date = ''
+    form.isVatInvoice = false
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
   }

@@ -68,6 +68,10 @@
             </div>
 
             <div class="col-12">
+              <q-input v-model="form.tax_number" label="Tax Number (VAT/TIN)" outlined dense />
+            </div>
+
+            <div class="col-12">
               <q-input v-model="form.email" label="Email Address" outlined dense type="email" />
             </div>
 
@@ -136,6 +140,7 @@ const form = reactive({
   email: props.customer?.email || '',
   address: props.customer?.address || '',
   nic_brn: props.customer?.nic_brn || '',
+  tax_number: props.customer?.tax_number || '',
   status: props.customer?.status || 'active',
 })
 

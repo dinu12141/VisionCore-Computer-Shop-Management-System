@@ -350,13 +350,16 @@
                     outlined
                     dense
                     v-model="serialInput"
-                    placeholder="Paste text here or upload file"
-                    type="textarea"
-                    autogrow
-                    @keyup.enter.stop
-                  />
+                    placeholder="Scan barcode or type serial number..."
+                    ref="serialInputRef"
+                    @keydown.enter.prevent="addSerial"
+                  >
+                    <template #prepend>
+                      <q-icon name="qr_code_scanner" color="primary" />
+                    </template>
+                  </q-input>
                   <div class="text-caption text-grey-6 q-mt-xs">
-                    You can paste a list from PDF/Excel or upload a file
+                    Scan barcode to auto-add, or paste a list and click Add
                   </div>
                 </div>
                 <div class="column q-gutter-xs">
@@ -438,7 +441,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import DataTable from 'components/common/DataTable.vue'
 import {
@@ -485,6 +488,7 @@ const adjustForm = reactive({
 const serialInput = ref('')
 const serialFile = ref(null)
 const serialFileRef = ref(null)
+const serialInputRef = ref(null)
 
 const emptyForm = {
   code: '',
@@ -531,23 +535,38 @@ function addSerial() {
   const entries = text.split(/[\s,;\n\t]+/)
 
   let addedCount = 0
+  let duplicateCount = 0
   entries.forEach((s) => {
     const cleanSerial = s.trim()
     if (cleanSerial && !form.serials.includes(cleanSerial)) {
       form.serials.push(cleanSerial)
       addedCount++
+    } else if (cleanSerial && form.serials.includes(cleanSerial)) {
+      duplicateCount++
     }
   })
 
   if (addedCount > 0) {
     $q.notify({
       type: 'positive',
-      message: `${addedCount} serial numbers added.`,
+      message: `${addedCount} serial${addedCount > 1 ? 's' : ''} added.`,
       timeout: 1000,
+    })
+  }
+  if (duplicateCount > 0) {
+    $q.notify({
+      type: 'warning',
+      message: `${duplicateCount} duplicate serial${duplicateCount > 1 ? 's' : ''} skipped.`,
+      timeout: 1500,
     })
   }
 
   serialInput.value = ''
+
+  // Refocus input for next scan
+  nextTick(() => {
+    serialInputRef.value?.focus()
+  })
 }
 
 async function handleSerialFileUpload(file) {

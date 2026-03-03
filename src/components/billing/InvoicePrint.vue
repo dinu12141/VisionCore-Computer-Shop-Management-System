@@ -12,12 +12,38 @@
         <q-btn flat round dense icon="close" v-close-popup />
         <q-toolbar-title> Invoice Preview: {{ activeInvoice?.invoice_no }} </q-toolbar-title>
         <q-space />
+
+        <!-- TAX / NORMAL toggle -->
+        <div class="row items-center q-mr-md" style="gap: 8px">
+          <q-btn
+            :color="!viewAsVat ? 'white' : 'rgba(255,255,255,0.2)'"
+            :text-color="!viewAsVat ? 'primary' : 'white'"
+            :flat="viewAsVat"
+            :unelevated="!viewAsVat"
+            dense
+            label="INVOICE"
+            size="sm"
+            @click="viewAsVat = false"
+          />
+          <q-btn
+            :color="viewAsVat ? 'deep-orange' : 'rgba(255,255,255,0.2)'"
+            :text-color="'white'"
+            :flat="!viewAsVat"
+            :unelevated="viewAsVat"
+            dense
+            label="TAX INVOICE"
+            icon="receipt_long"
+            size="sm"
+            @click="viewAsVat = true"
+          />
+        </div>
+
         <q-btn
           unelevated
           color="white"
           text-color="primary"
           icon="print"
-          label="Print Invoice"
+          label="Print"
           :disable="!activeInvoice"
           @click="handlePrint"
         />
@@ -57,14 +83,34 @@ const route = useRoute()
 const invoiceStore = useInvoiceStore()
 const localInvoice = ref(null)
 const loading = ref(false)
-
 const dialogRef = ref(null)
+
+// This toggle overrides however the invoice was originally created
+// true = show as TAX INVOICE, false = show as normal INVOICE
+const viewAsVat = ref(false)
 
 const activeInvoice = computed(() => props.invoice || localInvoice.value)
 
+// Build a modified invoice object that overrides is_vat_invoice based on toggle
+const invoiceForRender = computed(() => {
+  if (!activeInvoice.value) return null
+  return {
+    ...activeInvoice.value,
+    is_vat_invoice: viewAsVat.value,
+    // When switching to TAX view, compute VAT fields dynamically if not already set
+    ...(viewAsVat.value && !activeInvoice.value.is_vat_invoice
+      ? {
+          total_before_vat: activeInvoice.value.total,
+          vat_amount: Math.round(activeInvoice.value.total * 0.18 * 100) / 100,
+          total: Math.round(activeInvoice.value.total * 1.18 * 100) / 100,
+        }
+      : {}),
+  }
+})
+
 const renderedHtml = computed(() => {
-  if (!activeInvoice.value) return ''
-  return renderInvoiceHTML(activeInvoice.value, props.template)
+  if (!invoiceForRender.value) return ''
+  return renderInvoiceHTML(invoiceForRender.value, props.template)
 })
 
 onMounted(async () => {
@@ -72,7 +118,8 @@ onMounted(async () => {
     loading.value = true
     try {
       localInvoice.value = await invoiceStore.getInvoice(route.params.id)
-      // Check for autoPrint query param
+      // Default toggle to match how invoice was originally created
+      viewAsVat.value = !!localInvoice.value?.is_vat_invoice
       if (route.query.autoPrint === 'true') {
         setTimeout(() => {
           handlePrint()
@@ -81,15 +128,18 @@ onMounted(async () => {
     } finally {
       loading.value = false
     }
-  } else if (props.invoice && props.autoPrint) {
-    setTimeout(() => {
-      handlePrint()
-    }, 800)
+  } else if (props.invoice) {
+    // Default toggle to match how invoice was originally created
+    viewAsVat.value = !!props.invoice?.is_vat_invoice
+    if (props.autoPrint) {
+      setTimeout(() => {
+        handlePrint()
+      }, 800)
+    }
   }
 })
 
 function handlePrint() {
-  // Pass the same rendered HTML to the print helper
   printHTML(renderedHtml.value)
 }
 

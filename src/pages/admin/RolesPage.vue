@@ -404,6 +404,22 @@ function getRoleDefaults(roles) {
   // role_route_access reference — get routes the role normally has
   const ROLE_DEFAULTS = {
     admin: ['*'],
+    user: [
+      '/dashboard',
+      '/billing',
+      '/billing/history',
+      '/collections/outstanding',
+      '/customers',
+      '/inventory',
+      '/finance',
+      '/services',
+      '/services/jobs',
+      '/services/new',
+      '/services/reports',
+      '/reports/sales',
+      '/reports/invoices',
+      '/reports/payments',
+    ],
     manager: [
       '/dashboard',
       '/billing',
@@ -412,6 +428,10 @@ function getRoleDefaults(roles) {
       '/customers',
       '/inventory',
       '/finance',
+      '/services',
+      '/services/jobs',
+      '/services/new',
+      '/services/reports',
       '/reports/sales',
       '/reports/invoices',
       '/reports/payments',

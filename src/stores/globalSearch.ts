@@ -10,7 +10,7 @@ import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from './auth'
 
 export interface SearchResult {
-  entity_type: 'customer' | 'invoice' | 'item' | 'supplier' | 'payment'
+  entity_type: 'customer' | 'invoice' | 'item' | 'supplier' | 'payment' | 'service_job'
   entity_id: string
   title: string
   subtitle: string
@@ -55,6 +55,13 @@ export const ENTITY_CONFIG = {
     label: 'Payments',
     route: (id: string) => `/collections/outstanding`,
   },
+  service_job: {
+    icon: 'build',
+    color: 'deep-purple-7',
+    bgColor: 'deep-purple-1',
+    label: 'Service Jobs',
+    route: (id: string) => `/services/jobs/${id}`,
+  },
 } as const
 
 export const useGlobalSearchStore = defineStore('globalSearch', () => {
@@ -71,7 +78,7 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
   const groupedResults = computed(() => {
     const groups: Record<string, SearchResult[]> = {}
     // Maintain display order
-    const order = ['customer', 'invoice', 'item', 'supplier', 'payment']
+    const order = ['customer', 'invoice', 'item', 'supplier', 'payment', 'service_job']
     for (const type of order) {
       const items = results.value.filter((r) => r.entity_type === type)
       if (items.length > 0) groups[type] = items
@@ -81,7 +88,7 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
 
   const totalResults = computed(() => results.value.length)
 
-  // ── Perform Search ───────────────────────────────────────
+  // ── Perform Search ───────────────────────────────────────────
   async function performSearch(val: string, limit = 12) {
     const trimmed = val?.trim()
     if (!trimmed || trimmed.length < 2) {
@@ -100,30 +107,117 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
         authStore.profile?.company_id
 
       if (!companyId) {
-        console.warn('Global Search: No company ID found.')
+        console.warn('[GlobalSearch] No company ID found.')
+        loading.value = false
         return
       }
 
+      // ── Try RPC first ──────────────────────────────────────
       const { data, error } = await supabase.rpc('global_search', {
         p_company_id: companyId,
-        p_query: trimmed,
+        q: trimmed,
         p_limit: limit,
       })
 
-      if (error) throw error
-
-      results.value = (data || []) as SearchResult[]
-      selectedIndex.value = -1
-      searchTime.value = Math.round(performance.now() - start)
-
-      // Save to recent searches
-      addRecentSearch(trimmed)
+      if (error) {
+        console.warn('[GlobalSearch] RPC failed, using fallback search:', error.message)
+        // ── Fallback: direct table queries ─────────────────
+        await fallbackSearch(companyId, trimmed, limit)
+      } else {
+        results.value = (data || []) as SearchResult[]
+        selectedIndex.value = -1
+        searchTime.value = Math.round(performance.now() - start)
+        addRecentSearch(trimmed)
+      }
     } catch (err) {
-      console.error('Global search error:', err)
+      console.error('[GlobalSearch] Unexpected error:', err)
       results.value = []
     } finally {
       loading.value = false
+      searchTime.value = Math.round(performance.now() - start)
     }
+  }
+
+  // ── Fallback direct-query search (when RPC not available) ─────────────────
+  async function fallbackSearch(companyId: string, q: string, limit: number) {
+    const pat = `%${q}%`
+    const out: SearchResult[] = []
+
+    // Customers
+    const { data: custs } = await supabase
+      .from('customers')
+      .select('id, name, phone, customer_code')
+      .eq('company_id', companyId)
+      .or(`name.ilike.${pat},phone.ilike.${pat},customer_code.ilike.${pat}`)
+      .limit(limit)
+    ;(custs || []).forEach((c) =>
+      out.push({
+        entity_type: 'customer',
+        entity_id: c.id,
+        title: c.name,
+        subtitle: `Phone: ${c.phone || 'N/A'}`,
+        extra: { phone: c.phone, code: c.customer_code },
+        score: 80,
+      }),
+    )
+
+    // Invoices
+    const { data: invs } = await supabase
+      .from('invoices')
+      .select('id, invoice_no, total, payment_status, customer_snapshot')
+      .eq('company_id', companyId)
+      .or(`invoice_no.ilike.${pat}`)
+      .limit(limit)
+    ;(invs || []).forEach((i) =>
+      out.push({
+        entity_type: 'invoice',
+        entity_id: i.id,
+        title: i.invoice_no,
+        subtitle: `Customer: ${i.customer_snapshot?.name || 'Walk-in'} | ${i.payment_status} | LKR ${i.total}`,
+        extra: { status: i.payment_status, total: i.total, customer: i.customer_snapshot?.name },
+        score: 75,
+      }),
+    )
+
+    // Items
+    const { data: items } = await supabase
+      .from('items')
+      .select('id, name, code')
+      .eq('company_id', companyId)
+      .or(`name.ilike.${pat},code.ilike.${pat}`)
+      .limit(limit)
+    ;(items || []).forEach((i) =>
+      out.push({
+        entity_type: 'item',
+        entity_id: i.id,
+        title: i.name,
+        subtitle: `Code: ${i.code || 'N/A'}`,
+        extra: { code: i.code },
+        score: 70,
+      }),
+    )
+
+    // Service Jobs
+    const { data: jobs } = await supabase
+      .from('service_jobs')
+      .select('id, job_no, status, device_type, brand, customer_id')
+      .eq('company_id', companyId)
+      .or(`job_no.ilike.${pat},device_type.ilike.${pat},brand.ilike.${pat}`)
+      .limit(limit)
+    ;(jobs || []).forEach((j) =>
+      out.push({
+        entity_type: 'service_job',
+        entity_id: j.id,
+        title: j.job_no,
+        subtitle: `${j.device_type || ''} ${j.brand || ''} | ${j.status || ''}`.trim(),
+        extra: { status: j.status, device: j.device_type },
+        score: 65,
+      }),
+    )
+
+    results.value = out.sort((a, b) => b.score - a.score).slice(0, limit)
+    selectedIndex.value = -1
+    addRecentSearch(q)
   }
 
   // ── Clear ────────────────────────────────────────────────

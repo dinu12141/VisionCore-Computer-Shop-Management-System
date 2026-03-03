@@ -17,6 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_customers_code_prefix ON customers(customer_code 
 CREATE INDEX IF NOT EXISTS idx_customers_phone_prefix ON customers(phone text_pattern_ops);
 
 -- 2. UNIFIED SEARCH FUNCTION (V2 - Optimized)
+-- Drop old function first (return type changed, so CREATE OR REPLACE won't work)
+DROP FUNCTION IF EXISTS global_search(UUID, TEXT, INT);
+
 CREATE OR REPLACE FUNCTION global_search(
     p_company_id UUID,
     q TEXT,

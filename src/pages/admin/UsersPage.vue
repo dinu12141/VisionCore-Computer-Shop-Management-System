@@ -206,11 +206,11 @@ const saving = ref(false)
 const users = ref([])
 const branches = ref([])
 
-const availableRoles = ref([])
+const availableRoles = ref(['user'])
 
+// No need to load roles from DB — admin creates users with 'user' role only
 async function loadRoles() {
-  const { data } = await supabase.from('roles').select('name').order('name')
-  availableRoles.value = (data || []).map((r) => r.name)
+  // Roles are fixed to 'user' only for staff accounts
 }
 
 const branchOptions = computed(() => branches.value)
@@ -248,6 +248,7 @@ const form = reactive({
 function roleColor(role) {
   const map = {
     admin: 'red-8',
+    user: 'blue-6',
     manager: 'blue-8',
     inventory: 'green-8',
     finance: 'purple-8',
@@ -301,7 +302,7 @@ function openCreate() {
     full_name: '',
     email: '',
     password: '',
-    roles: [],
+    roles: ['user'],
     branch_id: branchOptions.value[0]?.id || null,
     is_active: true,
   })

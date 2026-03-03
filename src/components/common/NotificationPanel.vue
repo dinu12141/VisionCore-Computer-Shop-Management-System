@@ -6,8 +6,9 @@
       anchor="bottom left"
       self="top right"
       class="notification-panel"
-      style="width: 350px"
+      style="width: 370px"
     >
+      <!-- Header -->
       <div
         class="q-pa-md flex items-center justify-between"
         :class="$q.dark.isActive ? 'bg-grey-9 text-white' : 'bg-grey-2'"
@@ -26,41 +27,54 @@
         </q-btn>
       </div>
 
-      <q-list separator class="scroll" style="max-height: 400px">
+      <q-list separator class="scroll" style="max-height: 420px">
         <q-item
-          v-for="notification in notifications"
-          :key="notification.id"
+          v-for="n in notifications"
+          :key="n.id"
           clickable
           v-ripple
-          :class="notification.read ? '' : $q.dark.isActive ? 'bg-blue-10 text-white' : 'bg-blue-1'"
-          @click="markRead(notification.id)"
+          :class="[
+            !n.read ? ($q.dark.isActive ? 'bg-blue-10' : 'bg-blue-1') : '',
+            n.urgency === 'critical' ? 'border-left-critical' : '',
+            n.urgency === 'high' ? 'border-left-high' : '',
+          ]"
+          @click="markRead(n.id)"
         >
           <q-item-section avatar>
-            <q-icon :name="getIcon(notification.type)" :color="getColor(notification.type)" />
+            <q-icon
+              :name="getIcon(n.type, n.urgency)"
+              :color="getColor(n.type, n.urgency)"
+              size="22px"
+            />
           </q-item-section>
 
           <q-item-section>
-            <q-item-label>{{ notification.title }}</q-item-label>
-            <q-item-label caption lines="2">{{ notification.message }}</q-item-label>
-            <q-item-label caption class="text-grey-7">{{
-              formatTime(notification.timestamp)
-            }}</q-item-label>
+            <q-item-label class="text-weight-bold" style="font-size: 13px">
+              {{ n.title }}
+            </q-item-label>
+            <q-item-label caption lines="3" style="font-size: 11.5px; line-height: 1.4">
+              {{ n.message }}
+            </q-item-label>
+            <q-item-label caption class="text-grey-6" style="font-size: 10.5px">
+              {{ formatTime(n.timestamp) }}
+            </q-item-label>
           </q-item-section>
 
           <q-item-section side top>
             <q-badge
-              v-if="!notification.read"
-              color="blue"
+              v-if="!n.read"
+              :color="
+                n.urgency === 'critical' ? 'negative' : n.urgency === 'high' ? 'warning' : 'blue'
+              "
               rounded
-              class="q-mr-xs"
               style="width: 8px; height: 8px"
             />
           </q-item-section>
         </q-item>
 
-        <div v-if="notifications.length === 0" class="q-pa-md text-center text-grey">
-          <q-icon name="notifications_off" size="md" class="q-mb-sm" />
-          <div>No notifications</div>
+        <div v-if="notifications.length === 0" class="q-pa-lg text-center text-grey">
+          <q-icon name="notifications_off" size="40px" class="q-mb-sm" />
+          <div class="text-caption">No notifications</div>
         </div>
       </q-list>
     </q-menu>
@@ -69,8 +83,10 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useQuasar } from 'quasar'
 import { useNotificationStore } from 'src/stores/notifications'
 
+const $q = useQuasar()
 const store = useNotificationStore()
 
 const notifications = computed(() => store.notifications)
@@ -79,50 +95,48 @@ const unreadCount = computed(() => store.unreadCount)
 function markRead(id) {
   store.markRead(id)
 }
-
 function markAllRead() {
   store.markAllRead()
 }
 
-function getIcon(type) {
-  switch (type) {
-    case 'order':
-      return 'restaurant_menu'
-    case 'kitchen':
-      return 'kitchen'
-    case 'payment':
-      return 'payments'
-    case 'system':
-      return 'settings'
-    default:
-      return 'info'
+function getIcon(type, urgency) {
+  if (type === 'payment') {
+    return urgency === 'critical' ? 'alarm' : urgency === 'high' ? 'schedule' : 'payments'
   }
+  const map = { order: 'restaurant_menu', kitchen: 'kitchen', system: 'info' }
+  return map[type] || 'notifications'
 }
 
-function getColor(type) {
-  switch (type) {
-    case 'order':
-      return 'primary'
-    case 'kitchen':
-      return 'orange'
-    case 'payment':
-      return 'green'
-    case 'system':
-      return 'grey'
-    default:
-      return 'blue'
+function getColor(type, urgency) {
+  if (type === 'payment') {
+    return urgency === 'critical' ? 'negative' : urgency === 'high' ? 'warning' : 'orange'
   }
+  const map = { order: 'primary', kitchen: 'orange', system: 'grey' }
+  return map[type] || 'blue'
 }
 
 function formatTime(date) {
   if (!date) return ''
   const d = new Date(date)
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const now = new Date()
+  const diffMs = now - d
+  const diffMins = Math.floor(diffMs / 60000)
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`
+  return d.toLocaleDateString()
 }
 </script>
 
 <style scoped>
 .notification-panel {
-  border-radius: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.border-left-critical {
+  border-left: 3px solid var(--q-negative) !important;
+}
+.border-left-high {
+  border-left: 3px solid var(--q-warning) !important;
 }
 </style>

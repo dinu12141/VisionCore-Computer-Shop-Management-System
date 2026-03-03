@@ -27,8 +27,16 @@ const routes = [
         component: () => import('pages/reports/SalesReport.vue'),
       },
       {
+        path: 'reports/service-sales',
+        component: () => import('pages/reports/SalesReport.vue'),
+      },
+      {
         path: 'reports/invoices',
         component: () => import('pages/reports/InvoiceReport.vue'),
+      },
+      {
+        path: 'reports/all-invoices',
+        component: () => import('pages/reports/InvoicesPage.vue'),
       },
       {
         path: 'reports/payments',
@@ -79,6 +87,30 @@ const routes = [
       {
         path: 'finance',
         component: () => import('pages/finance/FinanceOverview.vue'),
+      },
+
+      // ── Services (Device Repair & Management) ────────────────────
+      {
+        path: 'services',
+        component: () => import('pages/services/ServiceDashboard.vue'),
+      },
+      {
+        path: 'services/jobs',
+        component: () => import('pages/services/JobsList.vue'),
+      },
+      {
+        path: 'services/new',
+        component: () => import('pages/services/CreateJob.vue'),
+      },
+      {
+        path: 'services/jobs/:id',
+        name: 'service-job-details',
+        component: () => import('pages/services/JobDetails.vue'),
+        props: true,
+      },
+      {
+        path: 'services/reports',
+        component: () => import('pages/services/ServiceReports.vue'),
       },
 
       // ── Search ───────────────────────────────────────────────────

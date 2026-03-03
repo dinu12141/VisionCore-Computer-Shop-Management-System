@@ -295,7 +295,8 @@ onMounted(async () => {
   if (authStore.user) {
     const companyId = authStore.currentBranch?.company_id
     if (companyId) {
-      notificationStore.checkUpcomingCollections(companyId)
+      // Run immediately + re-check every 30 min for collection date alerts
+      notificationStore.startPolling(companyId)
     }
   }
 })
@@ -320,7 +321,7 @@ function logout() {
 
 // Filtered + module-gated nav items
 const filteredMenuItems = computed(() => {
-  const roleFiltered = getFilteredNavItems(authStore.roles || [])
+  const roleFiltered = getFilteredNavItems(authStore.roles || [], authStore.canAccess)
 
   function recursiveModuleFilter(items) {
     return items

@@ -37,6 +37,14 @@ export const useInvoiceStore = defineStore('invoices', () => {
         notes: invoiceData.notes || null,
         created_by: authStore.user?.id,
         collection_date: invoiceData.collection_date || null,
+        // VAT invoice fields — only include when it's a VAT invoice
+        ...(invoiceData.is_vat_invoice
+          ? {
+              is_vat_invoice: true,
+              vat_amount: Number(invoiceData.vat_amount || 0),
+              total_before_vat: Number(invoiceData.total_before_vat || 0),
+            }
+          : {}),
       }
 
       // The DB trigger handles invoice_no generation
@@ -129,13 +137,29 @@ export const useInvoiceStore = defineStore('invoices', () => {
         .order('created_at', { ascending: false })
 
       if (filters.invoice_no) {
-        query = query.ilike('invoice_no', `%${filters.invoice_no}%`)
+        query = query.ilike('invoice_no', `%${filters.invoice_no.trim()}%`)
       }
 
-      if (filters.search) {
-        query = query.or(
-          `customer_snapshot->>name.ilike.%${filters.search}%,customer_snapshot->>phone.ilike.%${filters.search}%`,
-        )
+      if (filters.search && filters.search.trim() !== '') {
+        const qStr = filters.search.trim()
+        const qPattern = `%${qStr}%`
+
+        // Search matching invoice items first
+        const { data: itemData } = await supabase
+          .from('invoice_items')
+          .select('invoice_id')
+          .ilike('description', qPattern)
+
+        const matchedInvoiceIds = (itemData || []).map((i) => i.invoice_id)
+
+        let orString = `invoice_no.ilike.${qPattern},customer_snapshot->>name.ilike.${qPattern},customer_snapshot->>phone.ilike.${qPattern},notes.ilike.${qPattern}`
+
+        if (matchedInvoiceIds.length > 0) {
+          const uuidQueries = matchedInvoiceIds.map((id) => `id.eq.${id}`).join(',')
+          orString += `,${uuidQueries}`
+        }
+
+        query = query.or(orString)
       }
 
       if (filters.dateFrom) {

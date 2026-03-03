@@ -5,6 +5,7 @@ import { ROLE_LANDING, canAccessRoute } from 'src/config/roles'
 
 export type UserRole =
   | 'admin'
+  | 'user'
   | 'manager'
   | 'inventory'
   | 'finance'

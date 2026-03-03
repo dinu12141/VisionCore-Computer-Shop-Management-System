@@ -30,7 +30,7 @@ export const useFinanceStore = defineStore('finance', {
           return
         }
 
-        const { data, error } = await supabase.rpc('get_finance_overview_v1', {
+        const { data, error } = await supabase.rpc('get_finance_overview', {
           p_company_id: companyId,
           p_from_date: fromDate,
           p_to_date: toDate,
@@ -64,7 +64,7 @@ export const useFinanceStore = defineStore('finance', {
 
         if (!companyId) return
 
-        const { data, error } = await supabase.rpc('report_sales_summary_v1', {
+        const { data, error } = await supabase.rpc('report_sales_summary', {
           p_company_id: companyId,
           p_from_date: fromDate,
           p_to_date: toDate,

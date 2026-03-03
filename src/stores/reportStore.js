@@ -46,7 +46,7 @@ export const useReportStore = defineStore('reports', {
 
         if (!companyId) return
 
-        const { data, error } = await supabase.rpc('report_sales_by_customer_v1', {
+        const { data, error } = await supabase.rpc('report_sales_by_customer', {
           p_company_id: companyId,
           p_from_date: fromDate,
           p_to_date: toDate,
@@ -70,7 +70,7 @@ export const useReportStore = defineStore('reports', {
 
         if (!companyId) return
 
-        const { data, error } = await supabase.rpc('report_invoice_list_v1', {
+        const { data, error } = await supabase.rpc('report_invoice_list', {
           p_company_id: companyId,
           p_from_date: fromDate,
           p_to_date: toDate,
@@ -95,7 +95,7 @@ export const useReportStore = defineStore('reports', {
 
         if (!companyId) return
 
-        const { data, error } = await supabase.rpc('report_payment_summary_v1', {
+        const { data, error } = await supabase.rpc('report_payment_summary', {
           p_company_id: companyId,
           p_from_date: fromDate,
           p_to_date: toDate,

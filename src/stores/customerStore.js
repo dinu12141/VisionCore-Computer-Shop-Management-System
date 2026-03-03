@@ -34,11 +34,21 @@ export const useCustomerStore = defineStore('customers', () => {
         customers.value = []
         return
       }
-      const { data, error } = await supabase.rpc('search_customers', {
-        p_company_id: companyId,
-        p_query: query,
-        p_category_id: categoryId,
-      })
+
+      let dbQuery = supabase.from('customers').select('*').eq('company_id', companyId)
+
+      if (categoryId) {
+        dbQuery = dbQuery.eq('category_id', categoryId)
+      }
+
+      if (query && query.trim() !== '') {
+        const qPattern = `%${query.trim()}%`
+        dbQuery = dbQuery.or(
+          `name.ilike.${qPattern},phone.ilike.${qPattern},email.ilike.${qPattern},customer_code.ilike.${qPattern}`,
+        )
+      }
+
+      const { data, error } = await dbQuery.order('created_at', { ascending: false })
       if (error) throw new Error(error.message)
       customers.value = data
     } finally {
@@ -59,6 +69,7 @@ export const useCustomerStore = defineStore('customers', () => {
       email: customerData.email || null,
       address: customerData.address || null,
       nic_brn: customerData.nic_brn || null,
+      tax_number: customerData.tax_number || null,
       category_id: customerData.category_id || null,
       status: customerData.status || 'active',
       notes: customerData.notes || null,

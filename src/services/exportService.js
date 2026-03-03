@@ -553,4 +553,125 @@ export const REPORT_CONFIGS = {
       },
     ],
   },
+
+  // ── Sales: All Invoices Overview ──────────────────────────────────────────
+  sales_overview: {
+    label: 'Sales Overview Report',
+    category: 'Sales Report',
+    columns: [
+      { name: 'invoice_no', label: 'Invoice #', field: 'invoice_no', align: 'left' },
+      {
+        name: 'date',
+        label: 'Date',
+        field: (r) => r.created_at?.slice(0, 10) || '',
+        align: 'left',
+      },
+      {
+        name: 'customer',
+        label: 'Customer',
+        field: (r) => r.customer_snapshot?.name || 'Walk-in',
+        align: 'left',
+      },
+      { name: 'total', label: 'Total (LKR)', field: 'total', align: 'right' },
+      { name: 'paid_amount', label: 'Paid (LKR)', field: 'paid_amount', align: 'right' },
+      { name: 'balance', label: 'Balance (LKR)', field: 'balance', align: 'right' },
+      { name: 'payment_type', label: 'Method', field: 'payment_type', align: 'center' },
+      { name: 'payment_status', label: 'Status', field: 'payment_status', align: 'center' },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Invoices', value: data.length },
+      {
+        label: 'Total Revenue',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.total || 0), 0)),
+      },
+      {
+        label: 'Total Collected',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.paid_amount || 0), 0)),
+      },
+      {
+        label: 'Outstanding',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.balance || 0), 0)),
+      },
+    ],
+  },
+
+  // ── Sales: By Product / Item ──────────────────────────────────────────────
+  sales_items: {
+    label: 'Sales by Product',
+    category: 'Sales Report',
+    columns: [
+      { name: 'item_name', label: 'Item / Description', field: 'item_name', align: 'left' },
+      { name: 'qty_sold', label: 'Qty Sold', field: 'qty_sold', align: 'right' },
+      { name: 'revenue', label: 'Revenue (LKR)', field: 'revenue', align: 'right' },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Unique Items', value: data.length },
+      { label: 'Total Qty Sold', value: data.reduce((s, r) => s + Number(r.qty_sold || 0), 0) },
+      {
+        label: 'Total Revenue',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.revenue || 0), 0)),
+      },
+    ],
+  },
+
+  // ── Sales: By Customer ────────────────────────────────────────────────────
+  sales_customers: {
+    label: 'Sales by Customer',
+    category: 'Sales Report',
+    columns: [
+      { name: 'customer_name', label: 'Customer', field: 'customer_name', align: 'left' },
+      { name: 'invoice_count', label: 'Invoices', field: 'invoice_count', align: 'right' },
+      { name: 'revenue', label: 'Revenue (LKR)', field: 'revenue', align: 'right' },
+      { name: 'balance', label: 'Outstanding (LKR)', field: 'balance', align: 'right' },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Customers', value: data.length },
+      {
+        label: 'Total Revenue',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.revenue || 0), 0)),
+      },
+      {
+        label: 'Total Outstanding',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.balance || 0), 0)),
+      },
+    ],
+  },
+
+  // ── Service: Service Sales Report ────────────────────────────────────────
+  service_sales: {
+    label: 'Service Revenue Report',
+    category: 'Service Report',
+    columns: [
+      { name: 'job_no', label: 'Job #', field: 'job_no', align: 'left' },
+      { name: 'customer_name', label: 'Customer', field: 'customer_name', align: 'left' },
+      { name: 'device_type', label: 'Device', field: 'device_type', align: 'left' },
+      {
+        name: 'brand',
+        label: 'Brand/Model',
+        field: (r) => `${r.brand || ''} ${r.model || ''}`.trim(),
+        align: 'left',
+      },
+      { name: 'received_date', label: 'Received', field: 'received_date', align: 'left' },
+      { name: 'status', label: 'Status', field: 'status', align: 'center' },
+      { name: 'payment_status', label: 'Payment', field: 'payment_status', align: 'center' },
+      {
+        name: 'total_final_cost',
+        label: 'Final Cost (LKR)',
+        field: 'total_final_cost',
+        align: 'right',
+      },
+    ],
+    getSummary: (data) => {
+      const total = data.reduce((s, r) => s + Number(r.total_final_cost || 0), 0)
+      const paid = data
+        .filter((r) => r.payment_status === 'paid')
+        .reduce((s, r) => s + Number(r.total_final_cost || 0), 0)
+      return [
+        { label: 'Total Jobs', value: data.length },
+        { label: 'Total Revenue', value: formatCurrency(total) },
+        { label: 'Collected', value: formatCurrency(paid) },
+        { label: 'Outstanding', value: formatCurrency(total - paid) },
+      ]
+    },
+  },
 }

@@ -66,6 +66,39 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     )
     .join('')
 
+  // --- VAT Invoice: build totals HTML ---
+  const isVat = !!invoice.is_vat_invoice
+  const invoiceTitle = isVat ? 'TAX INVOICE' : 'INVOICE'
+
+  let totalsHtml = ''
+  if (isVat) {
+    // VAT Invoice: show 3 new lines BEFORE the existing PAID AMOUNT / BALANCE
+    const totalBeforeVat = Number(invoice.total_before_vat || 0)
+    const vatAmount = Number(invoice.vat_amount || invoice.tax || 0)
+    const totalWithVat = Number(invoice.total || 0)
+
+    totalsHtml = `
+          <div class="total-line">
+            <span class="total-label">TOTAL (WITHOUT VAT)</span>
+            <span class="total-val">${formatCurrency(totalBeforeVat)}</span>
+          </div>
+          <div class="total-line" style="color: #ed1c24;">
+            <span class="total-label">VAT (18%)</span>
+            <span class="total-val">${formatCurrency(vatAmount)}</span>
+          </div>
+          <div class="total-line" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 2px;">
+            <span class="total-label">TOTAL (WITH VAT)</span>
+            <span class="total-val">${formatCurrency(totalWithVat)}</span>
+          </div>`
+  } else {
+    // Normal Invoice: original TOTAL line exactly as before
+    totalsHtml = `
+          <div class="total-line">
+            <span class="total-label">TOTAL</span>
+            <span class="total-val">${formatCurrency(invoice.total)}</span>
+          </div>`
+  }
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -99,6 +132,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           display: flex;
           flex-direction: column;
           position: relative;
+          color: #000 !important;
         }
 
         @media screen {
@@ -108,7 +142,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
         .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
         .invoice-box { border: 2.5px solid #ed1c24; padding: 6px 20px; margin-top: 10px; }
-        .invoice-box h1 { color: #ed1c24; font-size: 32px; margin: 0; font-weight: 800; letter-spacing: 2px; line-height: 1; }
+        .invoice-box h1 { color: #ed1c24 !important; font-size: 32px; margin: 0; font-weight: 800; letter-spacing: 2px; line-height: 1; }
 
         .logo-box { text-align: center; width: 140px; }
         .logo-box img { width: 100%; height: auto; }
@@ -151,7 +185,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     <body >
       <div class="page">
         <div class="header-top">
-          <div class="invoice-box"><h1>INVOICE</h1></div>
+          <div class="invoice-box"><h1>${invoiceTitle}</h1></div>
           <div class="logo-box">
              <img src="${logoUrl}" alt="Logo">
           </div>
@@ -171,6 +205,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         </div>
 
         <div class="customer-section">
+          ${isVat && invoice.customer_snapshot?.tax_number ? `<div>TAX NO: ${invoice.customer_snapshot.tax_number}</div>` : ''}
           <div>Mr. ${invoice.customer_snapshot?.name || 'Walk-in Customer'}</div>
           <div>${invoice.customer_snapshot?.address || ''}</div>
           <div>${invoice.customer_snapshot?.phone || ''}</div>
@@ -195,10 +230,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         </div>
 
         <div class="totals-container">
-          <div class="total-line">
-            <span class="total-label">TOTAL</span>
-            <span class="total-val">${formatCurrency(invoice.total)}</span>
-          </div>
+          ${totalsHtml}
           <div class="total-line">
             <span class="total-label">PAID AMOUNT</span>
             <span class="total-val">${formatCurrency(invoice.paid_amount || invoice.paid_total)}</span>

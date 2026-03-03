@@ -98,7 +98,17 @@
     >
       <template v-slot:body-cell-invoice_no="props">
         <q-td :props="props">
-          <div class="text-weight-bold text-primary text-subtitle1">{{ props.value }}</div>
+          <div class="row items-center no-wrap">
+            <span class="text-weight-bold text-primary text-subtitle1">{{ props.value }}</span>
+            <q-badge
+              v-if="props.row.is_vat_invoice"
+              color="deep-orange"
+              text-color="white"
+              class="q-ml-sm"
+              style="font-size: 9px; padding: 2px 6px"
+              >TAX</q-badge
+            >
+          </div>
           <div class="text-caption text-grey-7">{{ formatDate(props.row.created_at) }}</div>
         </q-td>
       </template>

@@ -1,15 +1,12 @@
 <template>
   <div class="global-search-container">
-    <!--
-      Using v-model with a strictly local ref.
-      Removed :loading to prevent focus issues caused by the inner spinner element.
-    -->
     <q-input
       v-model="localQuery"
       dense
       standout
       placeholder="Search customers, invoices, items…"
       class="global-search-input"
+      input-class="search-input-text"
       @update:model-value="onSearchUpdate"
       @keydown.down.prevent="onArrowDown"
       @keydown.up.prevent="onArrowUp"
@@ -23,8 +20,9 @@
       </template>
 
       <template v-slot:append>
+        <q-spinner-dots v-if="loading" color="primary" size="16px" />
         <q-icon
-          v-if="localQuery"
+          v-else-if="localQuery"
           name="close"
           class="cursor-pointer"
           size="18px"
@@ -63,7 +61,7 @@
             </div>
           </div>
 
-          <!-- ── Recent Searches (no results yet or empty input) ── -->
+          <!-- ── Recent Searches ── -->
           <div v-else-if="!localQuery && recentSearches.length > 0" class="q-pa-sm">
             <div class="palette-section-header q-px-sm q-pb-xs row items-center justify-between">
               <span>Recent Searches</span>
@@ -172,7 +170,7 @@
             <div class="palette-footer q-px-md q-py-sm row items-center justify-between">
               <span class="footer-meta">
                 {{ totalResults }} result{{ totalResults !== 1 ? 's' : '' }}
-                <span v-if="searchTime"> · {{ searchTime }}ms</span>
+                <span v-if="searchTime">· {{ searchTime }}ms</span>
               </span>
               <q-btn
                 flat
@@ -214,10 +212,7 @@ import { debounce } from 'quasar'
 const router = useRouter()
 const searchStore = useGlobalSearchStore()
 
-// ── LOCAL input state is King. It is never overwritten by store.
 const localQuery = ref('')
-
-// De-reference store states
 const {
   loading,
   results,
@@ -230,21 +225,19 @@ const {
 
 const showMenu = ref(false)
 const searchInput = ref(null)
-
 const flatResults = computed(() => results.value)
 
 function getConfig(type) {
   return ENTITY_CONFIG[type] || ENTITY_CONFIG.item
 }
 
-// ── Search Logic ──
+// ── Debounced search ────────────────────────────────────────────────────────
 const performSearchDebounced = debounce((val) => {
-  const q = val.trim()
+  const q = val?.trim() || ''
   if (q.length >= 2) {
     searchStore.performSearch(q)
     showMenu.value = true
   } else {
-    // Too short, clear results but don't force close if we want to show recent searches
     results.value = []
     if (!q && recentSearches.value.length > 0) {
       showMenu.value = true
@@ -252,10 +245,9 @@ const performSearchDebounced = debounce((val) => {
       showMenu.value = false
     }
   }
-}, 350)
+}, 300)
 
 function onSearchUpdate(val) {
-  // val is already set in localQuery via v-model
   performSearchDebounced(val)
 }
 
@@ -284,7 +276,7 @@ function useRecentSearch(term) {
   showMenu.value = true
 }
 
-// ── Keyboard Navigation ──
+// ── Keyboard Navigation ────────────────────────────────────────────────────
 function onArrowDown() {
   if (!showMenu.value && flatResults.value.length) {
     showMenu.value = true
@@ -331,16 +323,13 @@ function scrollSelectedIntoView() {
   })
 }
 
-// ── Navigation ──
+// ── Navigation ─────────────────────────────────────────────────────────────
 function navigate(res) {
   showMenu.value = false
   results.value = []
   selectedIndex.value = -1
-
   const config = ENTITY_CONFIG[res.entity_type]
-  if (config) {
-    router.push(config.route(res.entity_id))
-  }
+  if (config) router.push(config.route(res.entity_id))
 }
 
 function viewFullResults() {
@@ -352,7 +341,7 @@ function onMenuHide() {
   selectedIndex.value = -1
 }
 
-// ── Helpers ──
+// ── Highlight ──────────────────────────────────────────────────────────────
 function highlightMatch(text) {
   if (!text || !localQuery.value || localQuery.value.length < 2) return text || ''
   const q = localQuery.value.trim()
@@ -413,21 +402,42 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown))
     }
   }
 
-  /* Theme Support locally instead of v-bind inside deep */
-  :deep(.q-field__native) {
+  /* Force typed text to always be black/dark regardless of theme */
+  :deep(.q-field__native),
+  :deep(input.search-input-text) {
     font-size: 13.5px;
     font-weight: 500;
+    color: #0f172a !important;
+    caret-color: #4f46e5;
+    -webkit-text-fill-color: #0f172a !important;
+  }
+
+  /* Focused state — subtle lift */
+  &.q-field--focused :deep(.q-field__control) {
+    background: #ffffff;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
   }
 }
 
-/* Dark Mode Overrides */
-:deep(.body--dark) .global-search-input {
-  .q-field__control {
+/* Dark Mode */
+.body--dark .global-search-input {
+  :deep(.q-field__control) {
     background: rgba(255, 255, 255, 0.07) !important;
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.12);
   }
-  &.q-field--focused .q-field__control {
+
+  :deep(.q-field__native),
+  :deep(input.search-input-text) {
+    color: #f1f5f9 !important;
+    -webkit-text-fill-color: #f1f5f9 !important;
+    caret-color: #818cf8;
+  }
+
+  &.q-field--focused :deep(.q-field__control) {
     background: rgba(255, 255, 255, 0.1) !important;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
   }
 }
 
@@ -454,7 +464,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown))
   overflow: hidden;
 }
 
-:deep(.body--dark) .search-palette {
+.body--dark .search-palette {
   background: rgba(17, 24, 39, 0.97) !important;
 }
 
@@ -475,8 +485,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown))
   }
 }
 
-:deep(.body--dark) .result-item:hover,
-:deep(.body--dark) .result-item.result-active {
+.body--dark .result-item:hover,
+.body--dark .result-item.result-active {
   background: rgba(99, 102, 241, 0.12) !important;
 }
 
@@ -503,5 +513,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleGlobalKeydown))
 }
 .skeleton-text {
   flex: 1;
+}
+
+.footer-meta {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.recent-item {
+  border-radius: 8px;
+  margin: 1px 4px;
+}
+.recent-label {
+  font-size: 13px;
+  color: #334155;
 }
 </style>
