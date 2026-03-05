@@ -1,9 +1,6 @@
 <template>
   <q-page class="q-pa-md">
-    <PageHeader
-      title="System Settings"
-      subtitle="Configure modules, features, and application preferences"
-    />
+    <PageHeader title="System Settings" subtitle="Global configuration preferences" showBack />
 
     <!-- Module Configuration Section -->
     <div class="q-mt-lg">

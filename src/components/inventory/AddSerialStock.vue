@@ -24,6 +24,7 @@
         fill-input
         hide-selected
         @filter="filterProducts"
+        @keyup.enter="handleProductScanEnter"
         :loading="loadingProducts"
       >
         <template v-slot:no-option>
@@ -53,11 +54,12 @@
       <!-- Single Entry Field -->
       <div v-if="inputMode === 'single'" class="q-mt-sm">
         <q-input
+          ref="serialInputRef"
           :dark="$q.dark.isActive"
           outlined
           v-model="serialInput"
-          label="Enter Serial Number"
-          placeholder="Type and press Enter"
+          label="Enter Serial Number / Barcode"
+          placeholder="Scan or type and press Enter"
           @keyup.enter="addSerial"
         >
           <template v-slot:append>
@@ -166,6 +168,9 @@ const loadingProducts = ref(false)
 const rawProducts = ref([])
 const productOptions = ref([])
 
+const serialInputRef = ref(null)
+const searchString = ref('')
+
 // Logic
 async function fetchProducts() {
   loadingProducts.value = true
@@ -190,6 +195,7 @@ async function fetchProducts() {
 }
 
 function filterProducts(val, update) {
+  searchString.value = val
   if (val === '') {
     update(() => {
       productOptions.value = rawProducts.value.map((p) => ({
@@ -214,6 +220,27 @@ function filterProducts(val, update) {
   })
 }
 
+function handleProductScanEnter() {
+  const val = searchString.value?.trim()
+  if (!val) return
+
+  const match = rawProducts.value.find(
+    (p) =>
+      p.code?.toLowerCase() === val.toLowerCase() || p.name?.toLowerCase() === val.toLowerCase(),
+  )
+
+  if (match) {
+    selectedProduct.value = {
+      label: `${match.name} (${match.code})`,
+      value: match.id,
+    }
+    inputMode.value = 'single'
+    setTimeout(() => {
+      serialInputRef.value?.focus()
+    }, 150)
+  }
+}
+
 function addSerial() {
   const sn = serialInput.value.trim()
   if (!sn) return
@@ -223,6 +250,11 @@ function addSerial() {
   } else {
     serials.value.unshift(sn)
     serialInput.value = ''
+
+    // Maintain focus for continuous scanning
+    setTimeout(() => {
+      serialInputRef.value?.focus()
+    }, 50)
   }
 }
 

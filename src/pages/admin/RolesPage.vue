@@ -3,6 +3,7 @@
     <PageHeader
       title="Access Management"
       subtitle="Grant or restrict system feature access per user"
+      showBack
     />
 
     <!-- Loading -->

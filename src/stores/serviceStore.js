@@ -235,6 +235,22 @@ export const useServiceStore = defineStore('services', () => {
     }
   }
 
+  // ─── DELETE JOB ─────────────────────────────────────────────────────────
+  async function deleteJob(jobId) {
+    loading.value = true
+    try {
+      const { error } = await supabase.from('service_jobs').delete().eq('id', jobId)
+      if (error) throw error
+      jobs.value = jobs.value.filter((j) => j.id !== jobId)
+      return true
+    } catch (err) {
+      console.error('[ServiceStore] Delete job failed:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   // ─── UPDATE STATUS ──────────────────────────────────────────────────────
   async function updateStatus(jobId, newStatus, notes = '') {
     const companyId = getCompanyId()
@@ -490,6 +506,26 @@ export const useServiceStore = defineStore('services', () => {
     return data
   }
 
+  async function updateReport(reportId, payload) {
+    const { data, error } = await supabase
+      .from('service_reports')
+      .update(payload)
+      .eq('id', reportId)
+      .select()
+      .single()
+    if (error) throw error
+    const idx = reports.value.findIndex((r) => r.id === reportId)
+    if (idx !== -1) reports.value[idx] = data
+    return data
+  }
+
+  async function deleteReport(reportId) {
+    const { error } = await supabase.from('service_reports').delete().eq('id', reportId)
+    if (error) throw error
+    reports.value = reports.value.filter((r) => r.id !== reportId)
+    return true
+  }
+
   // ─── ISSUE TEMPLATES ────────────────────────────────────────────────────
   async function fetchIssueTemplates() {
     const companyId = getCompanyId()
@@ -541,6 +577,9 @@ export const useServiceStore = defineStore('services', () => {
     logActivity,
     fetchReports,
     createReport,
+    updateReport,
+    deleteReport,
+    deleteJob,
     fetchIssueTemplates,
     recalcCosts,
   }

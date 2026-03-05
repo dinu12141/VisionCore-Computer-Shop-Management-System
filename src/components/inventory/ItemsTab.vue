@@ -227,16 +227,25 @@
               <div class="text-subtitle2 q-mb-xs text-grey-8">Prices & Category</div>
               <div class="row q-col-gutter-sm">
                 <div class="col-3">
-                  <q-select
-                    :dark="$q.dark.isActive"
-                    outlined
-                    dense
-                    v-model="form.category_id"
-                    :options="categoryOptions"
-                    label="Category"
-                    emit-value
-                    map-options
-                  />
+                  <div class="row items-center no-wrap">
+                    <div class="col">
+                      <q-select
+                        :dark="$q.dark.isActive"
+                        outlined
+                        dense
+                        v-model="form.category_id"
+                        :options="categoryOptions"
+                        label="Category"
+                        emit-value
+                        map-options
+                      />
+                    </div>
+                    <div class="col-auto q-ml-sm">
+                      <q-btn flat round dense color="primary" icon="add" @click="promptAddCategory">
+                        <q-tooltip>Add New Category</q-tooltip>
+                      </q-btn>
+                    </div>
+                  </div>
                 </div>
                 <div class="col-3">
                   <q-select
@@ -441,7 +450,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import DataTable from 'components/common/DataTable.vue'
 import {
@@ -453,8 +462,10 @@ import {
   postDocument,
 } from 'src/services/inventoryService'
 import * as XLSX from 'xlsx'
-
+import { useAuthStore } from 'src/stores/auth'
 const $q = useQuasar()
+const authStore = useAuthStore()
+
 const {
   items,
   loading,
@@ -464,7 +475,7 @@ const {
   deleteItem: trueDelete,
   generateNextItemCode,
 } = useItemsList()
-const { categories, listCategories } = useCategoryList()
+const { categories, listCategories, createCategory } = useCategoryList()
 const { uoms, listUoms } = useUomList()
 const { warehouses, listWarehouses } = useWarehouseList()
 
@@ -511,8 +522,49 @@ const emptyForm = {
 
 const form = reactive({ ...emptyForm })
 
+// Watch for auth context to become available (handles the race condition)
+watch(
+  () => authStore.currentBranch?.company_id,
+  (companyId) => {
+    if (companyId) {
+      listItems()
+      listCategories()
+      listUoms()
+      listWarehouses()
+    }
+  },
+  { immediate: true },
+)
+
+// Global barcode scanner listener
+let barcodeBuffer = ''
+let barcodeTimer = null
+
+function handleGlobalBarcodeScan(e) {
+  // Ignore if user is already typing in an input/textarea/select
+  const activeTag = document.activeElement?.tagName?.toLowerCase()
+  if (['input', 'textarea', 'select'].includes(activeTag)) return
+
+  if (e.key === 'Enter') {
+    if (barcodeBuffer.length >= 3) {
+      filter.value = barcodeBuffer // Auto-search the scanned barcode
+    }
+    barcodeBuffer = ''
+  } else if (e.key.length === 1) {
+    barcodeBuffer += e.key
+    clearTimeout(barcodeTimer)
+    barcodeTimer = setTimeout(() => {
+      barcodeBuffer = ''
+    }, 50) // Barcode keystrokes are very fast
+  }
+}
+
 onMounted(() => {
-  Promise.all([listItems(), listCategories(), listUoms(), listWarehouses()])
+  window.addEventListener('keydown', handleGlobalBarcodeScan)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalBarcodeScan)
 })
 
 // Sync initial stock with serials length
@@ -526,6 +578,31 @@ watch(
     }
   },
 )
+
+function promptAddCategory() {
+  $q.dialog({
+    title: 'Add Category',
+    message: 'Enter the name for the new category:',
+    prompt: {
+      model: '',
+      type: 'text',
+      outlined: true,
+      dense: true,
+    },
+    cancel: true,
+    persistent: true,
+  }).onOk(async (data) => {
+    if (data && data.trim()) {
+      try {
+        const newCat = await createCategory(data.trim())
+        form.category_id = newCat.id
+        $q.notify({ type: 'positive', message: 'Category added' })
+      } catch (err) {
+        $q.notify({ type: 'negative', message: err.message || 'Failed to add category' })
+      }
+    }
+  })
+}
 
 function addSerial() {
   const text = serialInput.value.trim()

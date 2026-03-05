@@ -172,6 +172,42 @@
               flat
               round
               dense
+              icon="download"
+              color="secondary"
+              size="sm"
+              class="q-mr-xs"
+              @click="downloadPdf(props.row.id)"
+            >
+              <q-tooltip>Download Report</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              icon="edit"
+              color="blue"
+              size="sm"
+              class="q-mr-xs"
+              @click="$router.push(`/services/edit/${props.row.id}`)"
+            >
+              <q-tooltip>Edit Job</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              icon="delete"
+              color="negative"
+              size="sm"
+              class="q-mr-xs"
+              @click="confirmDelete(props.row)"
+            >
+              <q-tooltip>Delete Job</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
               icon="visibility"
               color="primary"
               size="sm"
@@ -194,12 +230,67 @@
 </template>
 
 <script setup>
-import { reactive, onMounted, watch } from 'vue'
+import { reactive, onMounted, watch, ref } from 'vue'
 import { useQuasar, debounce } from 'quasar'
 import { useServiceStore } from 'src/stores/serviceStore'
+import { useAuthStore } from 'src/stores/auth'
+import { supabase } from 'src/boot/supabase'
+import { downloadServiceJobPDF } from 'src/services/serviceReportPdf'
 
 const $q = useQuasar()
 const store = useServiceStore()
+const authStore = useAuthStore()
+
+const deviceOptions = ref([])
+
+async function loadDeviceTypes() {
+  const companyId = authStore.currentBranch?.company_id
+  if (!companyId) return
+  const { data } = await supabase
+    .from('service_device_types')
+    .select('name')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('sort_order')
+  deviceOptions.value = (data || []).map((d) => ({ label: d.name, value: d.name }))
+}
+
+async function downloadPdf(jobId) {
+  $q.loading.show({ message: 'Generating PDF...' })
+  try {
+    await downloadServiceJobPDF(jobId)
+    $q.notify({ type: 'positive', message: 'Report downloaded successfully' })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message })
+  } finally {
+    $q.loading.hide()
+  }
+}
+
+function confirmDelete(job) {
+  $q.dialog({
+    title: 'Confirm Delete',
+    message: `Are you sure you want to delete service job ${job.job_no}? This cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      flat: true,
+      color: 'negative',
+      label: 'Delete',
+    },
+  }).onOk(async () => {
+    $q.loading.show({ message: 'Deleting job...' })
+    try {
+      await store.deleteJob(job.id)
+      $q.notify({ type: 'positive', message: 'Job deleted successfully' })
+      executeSearch() // Refresh list
+    } catch (err) {
+      $q.notify({ type: 'negative', message: 'Failed to delete: ' + err.message })
+    } finally {
+      $q.loading.hide()
+    }
+  })
+}
 
 const filters = reactive({
   search: '',
@@ -225,16 +316,6 @@ const priorityOptions = [
   { label: 'Normal', value: 'normal' },
   { label: 'High', value: 'high' },
   { label: 'Urgent', value: 'urgent' },
-]
-
-const deviceOptions = [
-  { label: 'Laptop', value: 'laptop' },
-  { label: 'Desktop', value: 'desktop' },
-  { label: 'Printer', value: 'printer' },
-  { label: 'Phone', value: 'phone' },
-  { label: 'Tablet', value: 'tablet' },
-  { label: 'Monitor', value: 'monitor' },
-  { label: 'Other', value: 'other' },
 ]
 
 const columns = [
@@ -282,7 +363,16 @@ watch(
   { deep: true },
 )
 
-onMounted(executeSearch)
+onMounted(() => {
+  Promise.all([loadDeviceTypes(), executeSearch()])
+})
+
+watch(
+  () => authStore.currentBranch?.company_id,
+  (id) => {
+    if (id) loadDeviceTypes()
+  },
+)
 </script>
 
 <style scoped lang="scss">

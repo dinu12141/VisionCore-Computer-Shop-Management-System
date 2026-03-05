@@ -158,8 +158,39 @@
           <q-btn flat round dense icon="visibility" color="primary" @click="viewInvoice(props.row)">
             <q-tooltip>View Invoice</q-tooltip>
           </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            icon="edit"
+            color="blue"
+            @click="$router.push(`/billing?editId=${props.row.id}`)"
+          >
+            <q-tooltip>Edit Invoice</q-tooltip>
+          </q-btn>
           <q-btn flat round dense icon="print" color="secondary" @click="printInvoice(props.row)">
             <q-tooltip>Print Invoice</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            icon="download"
+            color="deep-orange"
+            @click.stop="downloadInvoice(props.row)"
+            :loading="downloadingId === props.row.id"
+          >
+            <q-tooltip>Download PDF</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            icon="delete"
+            color="negative"
+            @click="confirmDeleteInvoice(props.row)"
+          >
+            <q-tooltip>Delete Invoice</q-tooltip>
           </q-btn>
           <q-btn
             v-if="props.row.balance > 0"
@@ -203,14 +234,19 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
 import { debounce } from 'quasar'
+import { renderInvoiceHTML } from 'src/utils/renderInvoiceHTML'
+import { downloadInvoicePDF } from 'src/utils/downloadInvoicePDF'
 import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
 
+const $q = useQuasar()
 const router = useRouter()
 const invoiceStore = useInvoiceStore()
 const invoices = ref([])
 const loading = ref(false)
+const downloadingId = ref(null)
 
 // Dialog states
 const showPrintDialog = ref(false)
@@ -327,6 +363,49 @@ async function printInvoice(invoice) {
   } finally {
     loading.value = false
   }
+}
+
+async function downloadInvoice(invoice) {
+  downloadingId.value = invoice.id
+  try {
+    const fullInvoice = await invoiceStore.getInvoice(invoice.id)
+    const html = renderInvoiceHTML({
+      ...fullInvoice,
+      is_vat_invoice: !!fullInvoice.is_vat_invoice,
+    })
+    await downloadInvoicePDF(html, fullInvoice.invoice_no || 'Invoice')
+    $q.notify({
+      type: 'positive',
+      icon: 'download',
+      message: `${fullInvoice.invoice_no}.pdf downloaded!`,
+    })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: 'PDF download failed: ' + err.message })
+  } finally {
+    downloadingId.value = null
+  }
+}
+
+function confirmDeleteInvoice(invoice) {
+  $q.dialog({
+    title: 'Delete Invoice',
+    message: `Are you sure you want to delete invoice <b>${invoice.invoice_no}</b>? This action cannot be undone and may affect inventory/financial records.`,
+    html: true,
+    cancel: true,
+    persistent: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    loading.value = true
+    try {
+      await invoiceStore.deleteInvoice(invoice.id)
+      $q.notify({ type: 'positive', message: 'Invoice deleted successfully' })
+      fetchInvoices()
+    } catch (err) {
+      $q.notify({ type: 'negative', message: 'Failed to delete invoice: ' + err.message })
+    } finally {
+      loading.value = false
+    }
+  })
 }
 
 onMounted(async () => {

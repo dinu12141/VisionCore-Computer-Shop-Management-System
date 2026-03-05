@@ -1,9 +1,21 @@
 <template>
   <div class="page-header q-mb-lg">
     <div class="page-header-inner row items-center justify-between no-wrap">
-      <div class="page-header-text">
-        <div class="page-header-eyebrow" v-if="subtitle">{{ subtitle }}</div>
-        <h1 class="page-header-title">{{ title }}</h1>
+      <div class="row items-center no-wrap">
+        <q-btn
+          v-if="showBack"
+          flat
+          round
+          dense
+          icon="arrow_back"
+          class="q-mr-md"
+          color="primary"
+          @click="$router.back()"
+        />
+        <div class="page-header-text">
+          <div class="page-header-eyebrow" v-if="subtitle">{{ subtitle }}</div>
+          <h1 class="page-header-title">{{ title }}</h1>
+        </div>
       </div>
       <div class="row q-gutter-sm items-center page-header-actions" v-if="$slots.actions">
         <slot name="actions"></slot>
@@ -17,6 +29,7 @@
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
+  showBack: { type: Boolean, default: false },
 })
 </script>
 

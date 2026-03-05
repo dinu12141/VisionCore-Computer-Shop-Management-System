@@ -77,10 +77,10 @@ export function useInventoryDocuments() {
           `
           *,
           inv_document_types(code, name, direction),
-          warehouses!inv_documents_warehouse_id_fkey(name, warehouse_type),
-          target_warehouse:warehouses!inv_documents_target_warehouse_id_fkey(name),
+          warehouses!warehouse_id(name, warehouse_type),
+          target_warehouse:warehouses!target_warehouse_id(name),
           suppliers(name),
-          profiles!inv_documents_created_by_fkey(full_name)
+          profiles!created_by(full_name)
         `,
         )
         .order('created_at', { ascending: false })
@@ -115,10 +115,10 @@ export function useInventoryDocuments() {
           `
           *,
           inv_document_types(code, name, direction),
-          warehouses!inv_documents_warehouse_id_fkey(name, warehouse_type),
-          target_warehouse:warehouses!inv_documents_target_warehouse_id_fkey(name),
+          warehouses!warehouse_id(name, warehouse_type),
+          target_warehouse:warehouses!target_warehouse_id(name),
           suppliers(name),
-          profiles!inv_documents_created_by_fkey(full_name)
+          profiles!created_by(full_name)
         `,
         )
         .eq('id', docId)

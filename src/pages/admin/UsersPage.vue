@@ -1,6 +1,6 @@
 <template>
   <q-page class="q-pa-md">
-    <PageHeader title="User Management" subtitle="Manage system users and their access" />
+    <PageHeader title="User Management" subtitle="Manage system users and their access" showBack />
 
     <q-card
       flat
@@ -142,10 +142,14 @@
 
             <q-select
               v-model="form.roles"
-              label="Roles *"
+              label="Role (Auto Locked) *"
               :options="availableRoles"
+              option-value="value"
+              option-label="label"
+              emit-value
               multiple
               use-chips
+              readonly
               outlined
               dense
               :dark="$q.dark.isActive"
@@ -206,11 +210,22 @@ const saving = ref(false)
 const users = ref([])
 const branches = ref([])
 
-const availableRoles = ref(['user'])
+const availableRoles = ref([{ label: 'User', value: 'user' }])
 
-// No need to load roles from DB — admin creates users with 'user' role only
+async function ensureUserRole() {
+  try {
+    const { data } = await supabase.from('roles').select('id').eq('name', 'user')
+    if (!data || data.length === 0) {
+      // Insert 'user' role automatically if it doesn't exist
+      await supabase.from('roles').insert([{ name: 'user', description: 'Standard User' }])
+    }
+  } catch (err) {
+    console.error('Failed to ensure user role exists', err)
+  }
+}
+
 async function loadRoles() {
-  // Roles are fixed to 'user' only for staff accounts
+  // Roles are now restricted to 'user' based on requirements
 }
 
 const branchOptions = computed(() => branches.value)
@@ -316,7 +331,7 @@ function openEdit(user) {
     full_name: user.full_name,
     email: user.email,
     password: '',
-    roles: [...(user.roles || [])],
+    roles: ['user'], // Force to 'user' since it's the only selectable option now
     branch_id: user.branch_id || null,
     is_active: user.is_active,
   })
@@ -378,6 +393,7 @@ function deleteUser(user) {
 }
 
 onMounted(async () => {
+  await ensureUserRole()
   await Promise.all([loadUsers(), loadBranches(), loadRoles()])
 })
 </script>

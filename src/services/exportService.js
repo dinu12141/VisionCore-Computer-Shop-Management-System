@@ -1,14 +1,14 @@
-/**
- * ╔══════════════════════════════════════════════════════╗
- * ║         VisionCore ERP — Report Export Service       ║
- * ║  Enterprise-grade Excel & PDF generation engine      ║
- * ╚══════════════════════════════════════════════════════╝
+﻿/**
+ * â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+ * â•‘         VisionCore ERP â€” Report Export Service       â•‘
+ * â•‘  Enterprise-grade Excel & PDF generation engine      â•‘
+ * â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *
  * Dependencies (already in package.json):
- *   xlsx          → Excel generation
- *   jspdf         → PDF generation
- *   jspdf-autotable → PDF table rendering
- *   file-saver    → Cross-browser download trigger
+ *   xlsx          â†’ Excel generation
+ *   jspdf         â†’ PDF generation
+ *   jspdf-autotable â†’ PDF table rendering
+ *   file-saver    â†’ Cross-browser download trigger
  */
 
 import * as XLSX from 'xlsx'
@@ -17,20 +17,7 @@ import autoTable from 'jspdf-autotable'
 import fileSaver from 'file-saver'
 const { saveAs } = fileSaver
 
-// ─── Company branding ────────────────────────────────────────────────────────
-const COMPANY = {
-  name: 'VisionCore ERP',
-  tagline: 'Enterprise Resource Planning',
-  primaryColor: '#6366F1', // indigo-500
-  accentColor: '#4F46E5',
-  textDark: '#0F172A',
-  textMuted: '#64748B',
-  borderColor: '#E2E8F0',
-  successColor: '#16A34A',
-  dangerColor: '#DC2626',
-}
-
-// ─── Currency formatter ───────────────────────────────────────────────────────
+// â”€â”€â”€ Currency formatter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const formatCurrency = (val) =>
   'LKR ' +
   (Number(val) || 0).toLocaleString('en-LK', {
@@ -38,7 +25,7 @@ export const formatCurrency = (val) =>
     maximumFractionDigits: 2,
   })
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Date helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const formatDate = (val) => {
   if (!val) return ''
   return new Date(val).toLocaleDateString('en-GB', {
@@ -59,33 +46,33 @@ export const formatDateTime = (val) => {
   })
 }
 
-// ─── Type detection ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Type detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const isCurrencyField = (field) =>
   /price|cost|total|amount|revenue|profit|balance|cogs|paid|outstanding|received|due/i.test(field)
 
 const isDateField = (field) => /date|created_at|updated_at|issued_at/i.test(field)
 
-// ─── Safe cell value resolver ─────────────────────────────────────────────────
+// â”€â”€â”€ Safe cell value resolver â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const resolveValue = (row, col) => {
   if (typeof col.field === 'function') return col.field(row)
   return row[col.field] ?? ''
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  EXCEL EXPORT
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
- * exportToExcel — Generates a professional .xlsx file
+ * exportToExcel â€” Generates a professional .xlsx file
  *
  * @param {Object} options
- * @param {Array}  options.data         — Row data array
- * @param {Array}  options.columns      — Column definitions [{name, label, field}]
- * @param {string} options.fileName     — Output file name (without extension)
- * @param {string} options.reportTitle  — Report title shown at top
- * @param {string} options.dateFrom     — Filter date from
- * @param {string} options.dateTo       — Filter date to
- * @param {Array}  options.summaryRows  — Optional summary/totals rows
+ * @param {Array}  options.data         â€” Row data array
+ * @param {Array}  options.columns      â€” Column definitions [{name, label, field}]
+ * @param {string} options.fileName     â€” Output file name (without extension)
+ * @param {string} options.reportTitle  â€” Report title shown at top
+ * @param {string} options.dateFrom     â€” Filter date from
+ * @param {string} options.dateTo       â€” Filter date to
+ * @param {Array}  options.summaryRows  â€” Optional summary/totals rows
  */
 export async function exportToExcel({
   data = [],
@@ -100,17 +87,17 @@ export async function exportToExcel({
 
   const wb = XLSX.utils.book_new()
 
-  // ── Build worksheet data ──────────────────────────────────────────────────
+  // â”€â”€ Build worksheet data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const wsData = []
 
   // Row 1: Company name
-  wsData.push([COMPANY.name])
+  wsData.push(['Vision Computers'])
   // Row 2: Report title
   wsData.push([reportTitle])
   // Row 3: Date range
   wsData.push([
     dateFrom && dateTo
-      ? `Period: ${formatDate(dateFrom)} — ${formatDate(dateTo)}`
+      ? `Period: ${formatDate(dateFrom)} â€” ${formatDate(dateTo)}`
       : `Generated: ${formatDateTime(new Date())}`,
   ])
   // Row 4: Generated timestamp
@@ -140,7 +127,7 @@ export async function exportToExcel({
 
   const ws = XLSX.utils.aoa_to_sheet(wsData)
 
-  // ── Column widths ─────────────────────────────────────────────────────────
+  // â”€â”€ Column widths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const colWidths = columns.map((col) => {
     const maxLen = Math.max(
       (col.label || '').length,
@@ -150,7 +137,7 @@ export async function exportToExcel({
   })
   ws['!cols'] = colWidths
 
-  // ── Merge cells for title rows ────────────────────────────────────────────
+  // â”€â”€ Merge cells for title rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const lastColIndex = columns.length - 1
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: lastColIndex } }, // Company name
@@ -159,10 +146,10 @@ export async function exportToExcel({
     { s: { r: 3, c: 0 }, e: { r: 3, c: lastColIndex } }, // Export date
   ]
 
-  // ── Freeze header row (row 6 = index 5) ──────────────────────────────────
+  // â”€â”€ Freeze header row (row 6 = index 5) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   ws['!freeze'] = { xSplit: 0, ySplit: 6 }
 
-  // ── Cell styling ─────────────────────────────────────────────────────────
+  // â”€â”€ Cell styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Style company name (row 0)
   const cellA1 = XLSX.utils.encode_cell({ r: 0, c: 0 })
   if (!ws[cellA1]) ws[cellA1] = {}
@@ -194,7 +181,7 @@ export async function exportToExcel({
     }
   })
 
-  // Style data rows — alternate banding + currency right-align
+  // Style data rows â€” alternate banding + currency right-align
   data.forEach((row, ri) => {
     const excelRow = headerRowIdx + 1 + ri
     columns.forEach((col, ci) => {
@@ -213,9 +200,19 @@ export async function exportToExcel({
     })
   })
 
-  XLSX.utils.book_append_sheet(wb, ws, reportTitle.substring(0, 31))
+  // Sanitize sheet name - only allow safe characters (whitelist approach)
+  const safeSheetName =
+    (reportTitle || 'Report')
+      .split('')
+      .filter((ch) => ![':', '/', '\\', '?', '*', '[', ']', '|', '"', '<', '>'].includes(ch))
+      .join('')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 31) || 'Report'
 
-  // ── Write and download ────────────────────────────────────────────────────
+  XLSX.utils.book_append_sheet(wb, ws, safeSheetName)
+
+  // â”€â”€ Write and download â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true })
   const blob = new Blob([wbout], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -224,23 +221,23 @@ export async function exportToExcel({
   return true
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  PDF EXPORT
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
- * exportToPDF — Generates a professional A4/landscape PDF report
+ * exportToPDF â€” Generates a professional A4/landscape PDF report
  *
  * @param {Object} options
- * @param {Array}  options.data         — Row data array
- * @param {Array}  options.columns      — Column definitions [{name, label, field}]
- * @param {string} options.fileName     — Output file name (without extension)
- * @param {string} options.reportTitle  — Report title shown at top
- * @param {string} options.reportType   — Category label (e.g. "Sales Report")
- * @param {string} options.dateFrom     — Filter date from
- * @param {string} options.dateTo       — Filter date to
- * @param {Array}  options.summaryStats — [{label, value}] for summary section
- * @param {boolean} options.landscape   — Force landscape for wide reports
+ * @param {Array}  options.data         â€” Row data array
+ * @param {Array}  options.columns      â€” Column definitions [{name, label, field}]
+ * @param {string} options.fileName     â€” Output file name (without extension)
+ * @param {string} options.reportTitle  â€” Report title shown at top
+ * @param {string} options.reportType   â€” Category label (e.g. "Sales Report")
+ * @param {string} options.dateFrom     â€” Filter date from
+ * @param {string} options.dateTo       â€” Filter date to
+ * @param {Array}  options.summaryStats â€” [{label, value}] for summary section
+ * @param {boolean} options.landscape   â€” Force landscape for wide reports
  */
 export async function exportToPDF({
   data = [],
@@ -255,7 +252,31 @@ export async function exportToPDF({
 }) {
   if (!data.length) return false
 
-  // Auto-detect landscape: >6 columns or wide currency tables
+  // â”€â”€ Load logo as base64 (canvas trick â€” works in browser) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  async function loadLogoBase64(src) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/png'))
+        }
+        img.onerror = () => reject(new Error('Logo load failed'))
+        img.src = src
+      })
+    } catch {
+      return null
+    }
+  }
+
+  const logoBase64 = await loadLogoBase64('/logo.png')
+
+  // Auto-detect landscape: >6 columns
   const autoLandscape = landscape || columns.length > 6
 
   const doc = new jsPDF({
@@ -268,57 +289,66 @@ export async function exportToPDF({
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 14
 
-  // ── Header background band ────────────────────────────────────────────────
+  // Logo dimensions inside header
+  const logoH = 32 // height in mm
+  const logoW = 32 // width in mm (square logo)
+  const logoX = pageWidth - margin - logoW
+  const logoY = 5
+
+  // â”€â”€ Header background band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.setFillColor(79, 70, 229) // indigo-600
   doc.rect(0, 0, pageWidth, 42, 'F')
 
-  // ── Company name ──────────────────────────────────────────────────────────
+  // â”€â”€ Logo (top-right) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', logoX, logoY, logoW, logoH)
+  }
+
+  // â”€â”€ Company name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text(COMPANY.name, margin, 16)
+  doc.text('Vision Computers', margin, 16)
 
-  // ── Report type pill ──────────────────────────────────────────────────────
+  // â”€â”€ Report type pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(199, 210, 254) // indigo-200
   doc.text(reportType.toUpperCase(), margin, 23)
 
-  // ── Report title ─────────────────────────────────────────────────────────
+  // â”€â”€ Report title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(13)
   doc.text(reportTitle, margin, 32)
 
-  // ── Date range (right side of header) ────────────────────────────────────
+  // â”€â”€ Date range (right side of header â€” shifted left of logo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(199, 210, 254)
   const dateText =
     dateFrom && dateTo
-      ? `Period: ${formatDate(dateFrom)} – ${formatDate(dateTo)}`
+      ? `Period: ${formatDate(dateFrom)} â€“ ${formatDate(dateTo)}`
       : `Date: ${formatDate(new Date())}`
   const exportText = `Generated: ${formatDateTime(new Date())}`
-  doc.text(dateText, pageWidth - margin, 26, { align: 'right' })
-  doc.text(exportText, pageWidth - margin, 32, { align: 'right' })
+  const textRightEdge = logoBase64 ? logoX - 3 : pageWidth - margin
+  doc.text(dateText, textRightEdge, 26, { align: 'right' })
+  doc.text(exportText, textRightEdge, 32, { align: 'right' })
 
   let currentY = 52
 
-  // ── Summary statistics cards ──────────────────────────────────────────────
+  // â”€â”€ Summary statistics cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (summaryStats.length) {
     const cardWidth = (pageWidth - margin * 2 - (summaryStats.length - 1) * 4) / summaryStats.length
     summaryStats.forEach((stat, i) => {
       const x = margin + i * (cardWidth + 4)
-      // Card background
       doc.setFillColor(248, 250, 252)
       doc.setDrawColor(226, 232, 240)
       doc.roundedRect(x, currentY, cardWidth, 16, 2, 2, 'FD')
-      // Label
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7)
       doc.setTextColor(100, 116, 139)
       doc.text(stat.label, x + cardWidth / 2, currentY + 6, { align: 'center' })
-      // Value
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(15, 23, 42)
@@ -327,7 +357,7 @@ export async function exportToPDF({
     currentY += 24
   }
 
-  // ── Build table data ──────────────────────────────────────────────────────
+  // â”€â”€ Build table data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const tableHead = [columns.map((c) => c.label)]
   const tableBody = data.map((row) =>
     columns.map((col) => {
@@ -342,7 +372,7 @@ export async function exportToPDF({
     }),
   )
 
-  // ── Column styles ─────────────────────────────────────────────────────────
+  // â”€â”€ Column styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const columnStyles = {}
   columns.forEach((col, i) => {
     const isCurr = isCurrencyField(col.field || col.name)
@@ -351,7 +381,7 @@ export async function exportToPDF({
     }
   })
 
-  // ── Render table ──────────────────────────────────────────────────────────
+  // â”€â”€ Render table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   autoTable(doc, {
     startY: currentY,
     head: tableHead,
@@ -376,23 +406,38 @@ export async function exportToPDF({
       fillColor: [248, 250, 252],
     },
     columnStyles,
-    // Summary totals are shown in stat cards above the table (see summaryStats).
-    // Page footer
     // eslint-disable-next-line no-unused-vars
     didDrawPage: (_pageData) => {
       const pg = doc.internal.getCurrentPageInfo().pageNumber
       const total = doc.internal.getNumberOfPages()
 
+      // Re-draw header band on every page after the first
+      if (pg > 1) {
+        doc.setFillColor(79, 70, 229)
+        doc.rect(0, 0, pageWidth, 42, 'F')
+        if (logoBase64) doc.addImage(logoBase64, 'PNG', logoX, logoY, logoW, logoH)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(18)
+        doc.text('Vision Computers', margin, 16)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(199, 210, 254)
+        doc.text(reportType.toUpperCase(), margin, 23)
+        doc.setTextColor(255, 255, 255)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(13)
+        doc.text(reportTitle, margin, 32)
+      }
+
       // Footer divider
       doc.setDrawColor(226, 232, 240)
       doc.setLineWidth(0.3)
       doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10)
-
-      // Footer text
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7)
       doc.setTextColor(100, 116, 139)
-      doc.text(COMPANY.name + ' — Confidential', margin, pageHeight - 5)
+      doc.text('Vision Computers â€” Confidential', margin, pageHeight - 5)
       doc.text(`Page ${pg} of ${total}`, pageWidth - margin, pageHeight - 5, { align: 'right' })
       doc.text(`Exported: ${formatDateTime(new Date())}`, pageWidth / 2, pageHeight - 5, {
         align: 'center',
@@ -400,25 +445,22 @@ export async function exportToPDF({
     },
   })
 
-  // ── Totals summary at end of last page ────────────────────────────────────
-  // (summaryStats displayed already in cards above the table)
-
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   doc.save(`${fileName}_${new Date().toISOString().split('T')[0]}.pdf`)
   return true
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  REPORT CONFIGURATIONS
 //  Pre-built column/summary extractors for each report type
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
- * getReportConfig — returns columns + summary builder for a given report type.
+ * getReportConfig â€” returns columns + summary builder for a given report type.
  * This keeps export logic decoupled from individual page components.
  */
 export const REPORT_CONFIGS = {
-  // ── Sales: Item Sales / Profit ───────────────────────────────────────────
+  // â”€â”€ Sales: Item Sales / Profit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   item_sales: {
     label: 'Sales by Product',
     category: 'Sales Report',
@@ -454,7 +496,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: Customer Sales ────────────────────────────────────────────────
+  // â”€â”€ Sales: Customer Sales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   customer_sales: {
     label: 'Sales by Customer',
     category: 'Sales Report',
@@ -477,7 +519,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: Invoice Registry ───────────────────────────────────────────────
+  // â”€â”€ Sales: Invoice Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   invoice_list: {
     label: 'Invoice Registry',
     category: 'Sales Report',
@@ -508,7 +550,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: Payment Collections ────────────────────────────────────────────
+  // â”€â”€ Sales: Payment Collections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   payment_summary: {
     label: 'Payment Collection Report',
     category: 'Sales Report',
@@ -525,7 +567,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Finance: Profit Analysis ──────────────────────────────────────────────
+  // â”€â”€ Finance: Profit Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   profit_analysis: {
     label: 'Profit & Loss by Item',
     category: 'Finance Report',
@@ -554,7 +596,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: All Invoices Overview ──────────────────────────────────────────
+  // â”€â”€ Sales: All Invoices Overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   sales_overview: {
     label: 'Sales Overview Report',
     category: 'Sales Report',
@@ -595,7 +637,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: By Product / Item ──────────────────────────────────────────────
+  // â”€â”€ Sales: By Product / Item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   sales_items: {
     label: 'Sales by Product',
     category: 'Sales Report',
@@ -614,7 +656,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Sales: By Customer ────────────────────────────────────────────────────
+  // â”€â”€ Sales: By Customer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   sales_customers: {
     label: 'Sales by Customer',
     category: 'Sales Report',
@@ -637,7 +679,7 @@ export const REPORT_CONFIGS = {
     ],
   },
 
-  // ── Service: Service Sales Report ────────────────────────────────────────
+  // â”€â”€ Service: Service Sales Report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   service_sales: {
     label: 'Service Revenue Report',
     category: 'Service Report',
@@ -673,5 +715,197 @@ export const REPORT_CONFIGS = {
         { label: 'Outstanding', value: formatCurrency(total - paid) },
       ]
     },
+  },
+
+  // â”€â”€ Inventory: Supplier List â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  // Service: Full Detailed Report
+  service_full_report: {
+    label: 'Service Full Detail Report',
+    category: 'Service Report',
+    columns: [
+      { name: 'job_no', label: 'Job #', field: 'job_no', align: 'left' },
+      { name: 'received_date', label: 'Received Date', field: 'received_date', align: 'left' },
+      {
+        name: 'completion_date',
+        label: 'Completion Date',
+        field: 'completion_date',
+        align: 'left',
+      },
+      { name: 'customer_name', label: 'Customer Name', field: 'customer_name', align: 'left' },
+      { name: 'customer_phone', label: 'Phone', field: 'customer_phone', align: 'left' },
+      { name: 'device_type', label: 'Device Type', field: 'device_type', align: 'left' },
+      {
+        name: 'brand_model',
+        label: 'Brand / Model',
+        field: (r) => `${r.brand || ''} ${r.model || ''}`.trim(),
+        align: 'left',
+      },
+      { name: 'serial_no', label: 'Serial No', field: 'serial_no', align: 'left' },
+      {
+        name: 'issue_reported',
+        label: 'Issue Reported',
+        field: 'issue_reported_by_customer',
+        align: 'left',
+      },
+      {
+        name: 'inspection_notes',
+        label: 'Inspection Notes',
+        field: 'inspection_notes',
+        align: 'left',
+      },
+      { name: 'technician', label: 'Technician', field: 'technician_name', align: 'left' },
+      { name: 'warranty_days', label: 'Warranty (Days)', field: 'warranty_days', align: 'center' },
+      { name: 'status', label: 'Job Status', field: 'status', align: 'center' },
+      { name: 'payment_status', label: 'Payment Status', field: 'payment_status', align: 'center' },
+      {
+        name: 'total_estimated_cost',
+        label: 'Estimated Cost (LKR)',
+        field: 'total_estimated_cost',
+        align: 'right',
+      },
+      {
+        name: 'total_final_cost',
+        label: 'Final Cost (LKR)',
+        field: 'total_final_cost',
+        align: 'right',
+      },
+    ],
+    getSummary: (data) => {
+      const total = data.reduce((s, r) => s + Number(r.total_final_cost || 0), 0)
+      const paid = data
+        .filter((r) => r.payment_status === 'paid')
+        .reduce((s, r) => s + Number(r.total_final_cost || 0), 0)
+      const completed = data.filter((r) => r.status === 'completed').length
+      const pending = data.filter((r) => ['pending', 'in_progress'].includes(r.status)).length
+      return [
+        { label: 'Total Jobs', value: data.length },
+        { label: 'Completed', value: completed },
+        { label: 'Pending / In Progress', value: pending },
+        { label: 'Total Revenue', value: formatCurrency(total) },
+        { label: 'Collected', value: formatCurrency(paid) },
+        { label: 'Outstanding', value: formatCurrency(total - paid) },
+      ]
+    },
+  },
+
+  supplier_list: {
+    label: 'Supplier Directory',
+    category: 'Inventory Report',
+    columns: [
+      { name: 'code', label: 'Code', field: 'code', align: 'left' },
+      { name: 'name', label: 'Supplier Name', field: 'name', align: 'left' },
+      { name: 'contact_person', label: 'Contact Person', field: 'contact_person', align: 'left' },
+      { name: 'phone', label: 'Phone', field: 'phone', align: 'left' },
+      { name: 'email', label: 'Email', field: 'email', align: 'left' },
+      { name: 'address', label: 'Address', field: 'address', align: 'left' },
+      { name: 'tax_id', label: 'Tax ID / VAT', field: 'tax_id', align: 'left' },
+      {
+        name: 'is_active',
+        label: 'Status',
+        field: (r) => (r.is_active ? 'Active' : 'Inactive'),
+        align: 'center',
+      },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Suppliers', value: data.length },
+      { label: 'Active', value: data.filter((r) => r.is_active).length },
+      { label: 'Inactive', value: data.filter((r) => !r.is_active).length },
+    ],
+  },
+
+  // â”€â”€ Inventory: Item / Product List â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  item_list: {
+    label: 'Product / Item Registry',
+    category: 'Inventory Report',
+    columns: [
+      { name: 'code', label: 'Item Code', field: 'code', align: 'left' },
+      { name: 'name', label: 'Product Name', field: 'name', align: 'left' },
+      { name: 'category_name', label: 'Category', field: 'category_name', align: 'left' },
+      { name: 'brand', label: 'Brand', field: 'brand', align: 'left' },
+      { name: 'uom_code', label: 'UOM', field: 'uom_code', align: 'center' },
+      { name: 'total_qty', label: 'Stock Qty', field: 'total_qty', align: 'right' },
+      { name: 'reorder_level', label: 'Reorder Level', field: 'reorder_level', align: 'right' },
+      { name: 'cost_price', label: 'Cost Price', field: 'cost_price', align: 'right' },
+      { name: 'sale_price', label: 'Sale Price', field: 'sale_price', align: 'right' },
+      {
+        name: 'is_active',
+        label: 'Status',
+        field: (r) => (r.is_active ? 'Active' : 'Inactive'),
+        align: 'center',
+      },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Items', value: data.length },
+      { label: 'Active Items', value: data.filter((r) => r.is_active).length },
+      {
+        label: 'Total Stock Value',
+        value: formatCurrency(
+          data.reduce((s, r) => s + Number(r.total_qty || 0) * Number(r.cost_price || 0), 0),
+        ),
+      },
+      {
+        label: 'Low Stock Items',
+        value: data.filter(
+          (r) => Number(r.total_qty || 0) <= Number(r.reorder_level || 0) && r.is_active,
+        ).length,
+      },
+    ],
+  },
+
+  // â”€â”€ Inventory: Low Stock Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  item_list_low_stock: {
+    label: 'Low Stock Alert Report',
+    category: 'Inventory Report',
+    columns: [
+      { name: 'code', label: 'Item Code', field: 'code', align: 'left' },
+      { name: 'name', label: 'Product Name', field: 'name', align: 'left' },
+      { name: 'category_name', label: 'Category', field: 'category_name', align: 'left' },
+      { name: 'brand', label: 'Brand', field: 'brand', align: 'left' },
+      { name: 'total_qty', label: 'Current Stock', field: 'total_qty', align: 'right' },
+      { name: 'reorder_level', label: 'Reorder Level', field: 'reorder_level', align: 'right' },
+      {
+        name: 'shortage',
+        label: 'Shortage',
+        field: (r) => Math.max(0, Number(r.reorder_level || 0) - Number(r.total_qty || 0)),
+        align: 'right',
+      },
+      { name: 'supplier_name', label: 'Supplier', field: 'supplier_name', align: 'left' },
+    ],
+    getSummary: (data) => [
+      { label: 'Low Stock Items', value: data.length },
+      { label: 'Out of Stock', value: data.filter((r) => Number(r.total_qty || 0) <= 0).length },
+    ],
+  },
+
+  // â”€â”€ Inventory: Documents Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  inventory_docs: {
+    label: 'Inventory Documents Summary',
+    category: 'Inventory Report',
+    columns: [
+      { name: 'doc_type', label: 'Type', field: 'doc_type', align: 'left' },
+      { name: 'doc_number', label: 'Doc #', field: 'doc_number', align: 'left' },
+      { name: 'doc_date', label: 'Date', field: 'doc_date', align: 'center' },
+      { name: 'warehouse_name', label: 'Warehouse', field: 'warehouse_name', align: 'left' },
+      {
+        name: 'supplier_name',
+        label: 'Supplier/Target',
+        field: (r) => r.supplier_name || r.target_warehouse_name || '-',
+        align: 'left',
+      },
+      { name: 'total_qty', label: 'Qty', field: 'total_qty', align: 'right' },
+      { name: 'total_cost', label: 'Total Cost', field: 'total_cost', align: 'right' },
+      { name: 'status', label: 'Status', field: 'status', align: 'center' },
+      { name: 'created_by_name', label: 'Created By', field: 'created_by_name', align: 'left' },
+    ],
+    getSummary: (data) => [
+      { label: 'Total Documents', value: data.length },
+      { label: 'Posted', value: data.filter((r) => r.status === 'posted').length },
+      { label: 'Draft', value: data.filter((r) => r.status === 'draft').length },
+      {
+        label: 'Total Cost',
+        value: formatCurrency(data.reduce((s, r) => s + Number(r.total_cost || 0), 0)),
+      },
+    ],
   },
 }

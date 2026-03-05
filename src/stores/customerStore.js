@@ -100,6 +100,17 @@ export const useCustomerStore = defineStore('customers', () => {
     return data
   }
 
+  async function deleteCustomer(id) {
+    loading.value = true
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      customers.value = customers.value.filter((c) => c.id !== id)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function checkDuplicate(name, phone) {
     if (!name || !phone) return null
     const companyId = getCompanyId()
@@ -136,6 +147,7 @@ export const useCustomerStore = defineStore('customers', () => {
     fetchCustomers,
     createCustomer,
     updateCustomer,
+    deleteCustomer,
     createCategory,
     checkDuplicate,
   }

@@ -97,10 +97,10 @@ export function useDocumentList() {
         .select(
           `
           *,
-          warehouse:warehouses!inventory_documents_warehouse_id_fkey(id, name, code, warehouse_type),
-          target_wh:warehouses!inventory_documents_target_warehouse_id_fkey(id, name, code),
+          warehouse:warehouses!warehouse_id(id, name, code, warehouse_type),
+          target_wh:warehouses!target_warehouse_id(id, name, code),
           supplier:suppliers(id, name),
-          creator:profiles!inventory_documents_created_by_fkey(full_name)
+          creator:profiles!created_by(full_name)
         `,
         )
         .eq('company_id', companyId)
@@ -253,10 +253,10 @@ export async function fetchDocumentById(docId: string) {
     .select(
       `
       *,
-      warehouse:warehouses!inventory_documents_warehouse_id_fkey(id, name, code, warehouse_type),
-      target_wh:warehouses!inventory_documents_target_warehouse_id_fkey(id, name, code),
+      warehouse:warehouses!warehouse_id(id, name, code, warehouse_type),
+      target_wh:warehouses!target_warehouse_id(id, name, code),
       supplier:suppliers(id, name, code, email),
-      creator:profiles!inventory_documents_created_by_fkey(full_name)
+      creator:profiles!created_by(full_name)
     `,
     )
     .eq('id', docId)
@@ -501,7 +501,9 @@ export function useItemsList() {
     loading.value = true
     try {
       const companyId = getCompanyId()
-      if (!companyId) throw new Error('No company context.')
+      if (!companyId) {
+        return
+      }
 
       const { data, error } = await supabase
         .from('v_items_registry')
@@ -564,9 +566,9 @@ export function useItemsList() {
       .select(
         `
         *,
-        category:item_categories!items_category_id_fkey(id, name),
-        inv_uom:uom!items_inventory_uom_id_fkey(id, code, name),
-        default_supplier:suppliers!items_default_supplier_id_fkey(id, name)
+        category:item_categories(id, name),
+        inv_uom:uom!inventory_uom_id(id, code, name),
+        default_supplier:suppliers(id, name)
       `,
       )
       .single()
@@ -590,8 +592,30 @@ export function useItemsList() {
   }
 
   async function updateItem(id: string, updates: Record<string, any>) {
+    // Cleanup: remove non-updatable fields (e.g., from views or joined tables)
+    const cleanUpdates = { ...updates }
+    const toDelete = [
+      'category_name',
+      'uom_code',
+      'uom_name',
+      'uom_id', // items table uses inventory_uom_id, not uom_id
+      'supplier_name',
+      'total_qty',
+      'category',
+      'inv_uom',
+      'default_supplier',
+      'id',
+      'created_at',
+      'updated_at',
+      'company_id',
+      // UI-only fields that should never go to the DB
+      'initial_stock',
+      'initial_warehouse_id',
+    ]
+    toDelete.forEach((key) => delete (cleanUpdates as any)[key])
+
     const dataToUpdate = {
-      ...updates,
+      ...cleanUpdates,
       cost_price: Number(updates.cost_price || 0),
       sale_price: Number(updates.sale_price || 0),
       avg_cost: Number(updates.avg_cost || 0),
@@ -605,9 +629,9 @@ export function useItemsList() {
       .select(
         `
         *,
-        category:item_categories!items_category_id_fkey(id, name),
-        inv_uom:uom!items_inventory_uom_id_fkey(id, code, name),
-        default_supplier:suppliers!items_default_supplier_id_fkey(id, name)
+        category:item_categories(id, name),
+        inv_uom:uom!inventory_uom_id(id, code, name),
+        default_supplier:suppliers(id, name)
       `,
       )
       .single()
@@ -678,7 +702,9 @@ export function useWarehouseList() {
     loading.value = true
     try {
       const companyId = getCompanyId()
-      if (!companyId) throw new Error('No company context.')
+      if (!companyId) {
+        return
+      }
 
       const { data, error } = await supabase
         .from('warehouses')
@@ -816,12 +842,19 @@ export function useSupplierList() {
     return data
   }
 
+  async function deleteSupplier(id: string) {
+    const { error } = await supabase.from('suppliers').delete().eq('id', id)
+    if (error) throw error
+    suppliers.value = suppliers.value.filter((s: any) => s.id !== id)
+  }
+
   return {
     suppliers,
     loading,
     listSuppliers,
     createSupplier,
     updateSupplier,
+    deleteSupplier,
     generateNextSupplierCode,
   }
 }
@@ -833,11 +866,15 @@ export function useSupplierList() {
 export function useCategoryList() {
   const categories: Ref<any[]> = ref([])
   const loading = ref(false)
+  let channel: any = null
 
   async function listCategories() {
     loading.value = true
     try {
       const companyId = getCompanyId()
+      if (!companyId) {
+        return
+      }
       const { data, error } = await supabase
         .from('item_categories')
         .select('*')
@@ -846,6 +883,25 @@ export function useCategoryList() {
         .order('name')
       if (error) throw error
       categories.value = data || []
+
+      // Real-time subscription for categories
+      if (!channel && companyId) {
+        channel = supabase
+          .channel('categories-list-realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'item_categories',
+              filter: `company_id=eq.${companyId}`,
+            },
+            () => {
+              listCategories()
+            },
+          )
+          .subscribe()
+      }
     } catch (e: any) {
       console.error('[inventoryService] listCategories error:', e)
     } finally {
@@ -853,7 +909,23 @@ export function useCategoryList() {
     }
   }
 
-  return { categories, loading, listCategories }
+  async function createCategory(name: string) {
+    const companyId = getCompanyId()
+    if (!companyId) throw new Error('No company context.')
+
+    const { data, error } = await supabase
+      .from('item_categories')
+      .insert({ name, company_id: companyId, is_active: true })
+      .select('*')
+      .single()
+
+    if (error) throw error
+    categories.value.push(data)
+    categories.value.sort((a, b) => a.name.localeCompare(b.name))
+    return data
+  }
+
+  return { categories, loading, listCategories, createCategory }
 }
 
 /* ====================================================================

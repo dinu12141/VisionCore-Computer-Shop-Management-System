@@ -1,6 +1,10 @@
 <template>
   <q-page class="q-pa-md">
-    <PageHeader title="Branch Management" subtitle="Manage enterprise locations and branches" />
+    <PageHeader
+      title="Branch Management"
+      subtitle="Manage enterprise locations and branches"
+      showBack
+    />
 
     <q-card
       flat

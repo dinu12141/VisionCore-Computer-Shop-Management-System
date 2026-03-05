@@ -376,14 +376,21 @@ watch(
   },
 )
 
+// Watch for auth context to become available (handles the race condition)
+watch(
+  () => authStore.currentBranch?.company_id,
+  async (companyId) => {
+    if (companyId) {
+      await Promise.all([listWarehouses(), listSuppliers(), listItems(), listUoms()])
+      if (header.doc_type === 'GRN') {
+        refreshOpenPOs()
+      }
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
-  // Load reference data in parallel
-  await Promise.all([listWarehouses(), listSuppliers(), listItems(), listUoms()])
-
-  if (header.doc_type === 'GRN') {
-    refreshOpenPOs()
-  }
-
   // If editing existing document, fetch full lines
   if (props.document?.id) {
     try {

@@ -246,6 +246,85 @@ export const useInvoiceStore = defineStore('invoices', () => {
     }
   }
 
+  async function deleteInvoice(id) {
+    loading.value = true
+    try {
+      const { error } = await supabase.from('invoices').delete().eq('id', id)
+      if (error) throw error
+      return true
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateInvoice(id, invoiceData, items) {
+    loading.value = true
+    try {
+      const companyId = getCompanyId()
+      if (!companyId) throw new Error('Company ID missing')
+
+      // 1. Explicitly build the update payload to avoid non-existent columns
+      const updatePayload = {
+        customer_id: invoiceData.customer_id || null,
+        status: invoiceData.status || 'issued',
+        payment_type: invoiceData.payment_type || 'cash',
+        subtotal: Number(invoiceData.subtotal || 0),
+        discount: Number(invoiceData.discount || 0),
+        tax: Number(invoiceData.tax || 0),
+        total: Number(invoiceData.total || 0),
+        paid_amount: Number(invoiceData.paid_amount || 0),
+        balance: Math.max(
+          0,
+          Math.round(
+            (Number(invoiceData.total || 0) - Number(invoiceData.paid_amount || 0)) * 100,
+          ) / 100,
+        ),
+        customer_snapshot: invoiceData.customer_snapshot || {},
+        notes: invoiceData.notes || null,
+        collection_date: invoiceData.collection_date || null,
+        // VAT fields
+        ...(invoiceData.is_vat_invoice !== undefined
+          ? {
+              is_vat_invoice: !!invoiceData.is_vat_invoice,
+              vat_amount: Number(invoiceData.vat_amount || 0),
+              total_before_vat: Number(invoiceData.total_before_vat || 0),
+            }
+          : {}),
+      }
+
+      const { error: invError } = await supabase.from('invoices').update(updatePayload).eq('id', id)
+
+      if (invError) throw invError
+
+      // 2. Delete old items
+      const { error: delError } = await supabase.from('invoice_items').delete().eq('invoice_id', id)
+
+      if (delError) throw delError
+
+      // 3. Insert new items
+      const preparedItems = items.map((item) => ({
+        invoice_id: id,
+        product_id: item.product_id || null,
+        description: item.description,
+        item_code: item.item_code || null,
+        qty: Number(item.qty || 0),
+        unit_price: Number(item.unit_price || 0),
+        discount: Number(item.discount || 0),
+        line_total: Number(item.line_total || 0),
+        warranty: item.warranty || null,
+        selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
+        cost_unit_price_snapshot: Number(item.cost_price || 0),
+      }))
+
+      const { error: itemsError } = await supabase.from('invoice_items').insert(preparedItems)
+      if (itemsError) throw itemsError
+
+      return await getInvoice(id)
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     loading,
     createInvoice,
@@ -254,5 +333,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
     addPayment,
     fetchOutstandingCollections,
     fetchCollectionHistory,
+    deleteInvoice,
+    updateInvoice,
   }
 })

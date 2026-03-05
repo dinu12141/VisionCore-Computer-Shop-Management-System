@@ -108,7 +108,10 @@ export const useExportStore = defineStore('export', {
 
         const columns = customColumns || config.columns
         const reportTitle = customTitle || config.label
-        const fileName = reportTitle.replace(/\s+/g, '_')
+        const fileName = reportTitle
+          .replace(/[/\\:?*[\]|<>"]/g, '') // strip file system forbidden chars
+          .replace(/\s+/g, '_') // spaces → underscores
+          .trim()
         const summaryStats = config.getSummary ? config.getSummary(data) : []
 
         let success = false

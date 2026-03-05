@@ -96,6 +96,16 @@
             >
               <q-tooltip>Create Invoice</q-tooltip>
             </q-btn>
+            <q-btn
+              flat
+              dense
+              round
+              icon="delete"
+              color="negative"
+              @click="confirmDelete(props.row)"
+            >
+              <q-tooltip>Delete Customer</q-tooltip>
+            </q-btn>
           </q-td>
         </template>
 
@@ -126,7 +136,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCustomerStore } from 'src/stores/customerStore'
 import CustomerDialog from 'src/components/customers/CustomerDialog.vue'
+import { useQuasar } from 'quasar'
 
+const $q = useQuasar()
 const router = useRouter()
 const customerStore = useCustomerStore()
 
@@ -171,6 +183,27 @@ function onSaved() {
 
 function goToBilling(customer) {
   router.push({ name: 'billing', query: { customerId: customer.id } })
+}
+
+function confirmDelete(customer) {
+  $q.dialog({
+    title: 'Confirm Delete',
+    message: `Are you sure you want to delete customer "${customer.name}"? This will not affect existing invoices, but the customer record will be removed.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      flat: true,
+      color: 'negative',
+      label: 'Delete',
+    },
+  }).onOk(async () => {
+    try {
+      await customerStore.deleteCustomer(customer.id)
+      $q.notify({ type: 'positive', message: 'Customer deleted successfully' })
+    } catch (err) {
+      $q.notify({ type: 'negative', message: 'Failed to delete: ' + err.message })
+    }
+  })
 }
 </script>
 

@@ -46,6 +46,17 @@
           label="Print"
           :disable="!activeInvoice"
           @click="handlePrint"
+          class="q-mr-sm"
+        />
+        <q-btn
+          unelevated
+          color="deep-orange"
+          text-color="white"
+          icon="download"
+          label="Download PDF"
+          :disable="!activeInvoice"
+          :loading="downloading"
+          @click="handleDownload"
         />
       </q-toolbar>
 
@@ -69,9 +80,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
 import { renderInvoiceHTML } from 'src/utils/renderInvoiceHTML'
 import { printHTML } from 'src/utils/printHelper'
+import { downloadInvoicePDF } from 'src/utils/downloadInvoicePDF'
 
 const props = defineProps({
   invoice: { type: Object, default: null },
@@ -79,10 +92,12 @@ const props = defineProps({
   autoPrint: { type: Boolean, default: false },
 })
 
+const $q = useQuasar()
 const route = useRoute()
 const invoiceStore = useInvoiceStore()
 const localInvoice = ref(null)
 const loading = ref(false)
+const downloading = ref(false)
 const dialogRef = ref(null)
 
 // This toggle overrides however the invoice was originally created
@@ -141,6 +156,20 @@ onMounted(async () => {
 
 function handlePrint() {
   printHTML(renderedHtml.value)
+}
+
+async function handleDownload() {
+  if (!invoiceForRender.value) return
+  downloading.value = true
+  try {
+    const invoiceNo = invoiceForRender.value.invoice_no || 'Invoice'
+    await downloadInvoicePDF(renderedHtml.value, invoiceNo)
+    $q.notify({ type: 'positive', icon: 'download', message: `${invoiceNo}.pdf downloaded!` })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: 'PDF download failed: ' + err.message })
+  } finally {
+    downloading.value = false
+  }
 }
 
 // To support programmatic opening

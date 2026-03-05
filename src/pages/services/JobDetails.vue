@@ -53,7 +53,16 @@
               </q-item>
             </q-list>
           </q-btn-dropdown>
-          <q-btn flat icon="print" label="Report" @click="openReportDialog" color="secondary" />
+          <q-btn flat icon="download" label="Download PDF" @click="downloadPdf" color="secondary" />
+          <q-btn flat icon="print" label="Report" @click="openReportDialog" color="primary" />
+          <q-btn
+            flat
+            icon="edit"
+            label="Edit Job"
+            @click="$router.push(`/services/edit/${job.id}`)"
+            color="blue"
+          />
+          <q-btn flat icon="delete" label="Delete" @click="confirmDelete" color="negative" />
         </div>
       </div>
 
@@ -513,13 +522,81 @@
                 <q-card-section>
                   <div class="row q-col-gutter-md">
                     <div class="col-12">
+                      <!-- Inventory item selector with manual fallback -->
+                      <q-select
+                        v-if="!useManualItemName"
+                        v-model="partForm.selectedItem"
+                        label="Part / Item Name *"
+                        :options="filteredInventoryItems"
+                        option-value="id"
+                        option-label="name"
+                        emit-value
+                        map-options
+                        outlined
+                        dense
+                        use-input
+                        clearable
+                        :dark="$q.dark.isActive"
+                        @filter="filterInventoryItems"
+                        @update:model-value="onInventoryItemSelected"
+                      >
+                        <template v-slot:option="scope">
+                          <q-item v-bind="scope.itemProps">
+                            <q-item-section>
+                              <q-item-label>{{ scope.opt.name }}</q-item-label>
+                              <q-item-label caption
+                                >{{ scope.opt.code }} · LKR
+                                {{
+                                  Number(scope.opt.selling_price || 0).toLocaleString()
+                                }}</q-item-label
+                              >
+                            </q-item-section>
+                          </q-item>
+                        </template>
+                        <template v-slot:no-option="{ inputValue }">
+                          <q-item clickable @click="switchToManual(inputValue)">
+                            <q-item-section class="text-primary text-weight-bold">
+                              <span>+ Add "{{ inputValue }}" as custom item</span>
+                            </q-item-section>
+                          </q-item>
+                        </template>
+                        <template v-slot:after>
+                          <q-btn
+                            flat
+                            round
+                            icon="edit"
+                            color="primary"
+                            dense
+                            @click="switchToManual('')"
+                          >
+                            <q-tooltip>Type custom item name</q-tooltip>
+                          </q-btn>
+                        </template>
+                      </q-select>
+
+                      <!-- Manual text input fallback -->
                       <q-input
+                        v-else
                         v-model="partForm.item_name"
                         label="Part / Item Name *"
                         outlined
                         dense
                         :dark="$q.dark.isActive"
-                      />
+                        autofocus
+                      >
+                        <template v-slot:after>
+                          <q-btn
+                            flat
+                            round
+                            icon="list"
+                            color="primary"
+                            dense
+                            @click="switchToSelector"
+                          >
+                            <q-tooltip>Pick from inventory</q-tooltip>
+                          </q-btn>
+                        </template>
+                      </q-input>
                     </div>
                     <div class="col-12 col-sm-3">
                       <q-input
@@ -557,7 +634,7 @@
                     <div class="col-12">
                       <q-input
                         v-model="partForm.notes"
-                        label="Notes"
+                        label="Serial N.o / Notes"
                         outlined
                         dense
                         :dark="$q.dark.isActive"
@@ -629,8 +706,38 @@
                     • {{ formatDate(rpt.generated_at) }}
                   </q-item-label>
                 </q-item-section>
-                <q-item-section side>
-                  <q-btn flat icon="print" color="primary" @click="printReport(rpt)" size="sm">
+                <q-item-section side class="q-gutter-xs">
+                  <q-btn flat round icon="edit" color="blue" @click="editReport(rpt)" size="sm">
+                    <q-tooltip>Edit Report Notes</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    round
+                    icon="delete"
+                    color="negative"
+                    @click="deleteReport(rpt)"
+                    size="sm"
+                  >
+                    <q-tooltip>Delete Report</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    round
+                    icon="visibility"
+                    color="teal"
+                    @click="printReport(rpt, false)"
+                    size="sm"
+                  >
+                    <q-tooltip>View Report</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    flat
+                    round
+                    icon="print"
+                    color="primary"
+                    @click="printReport(rpt)"
+                    size="sm"
+                  >
                     <q-tooltip>Print / Download</q-tooltip>
                   </q-btn>
                 </q-item-section>
@@ -648,36 +755,88 @@
     <q-dialog v-model="showReportDialog" persistent>
       <q-card style="min-width: 500px" :dark="$q.dark.isActive">
         <q-card-section class="row items-center">
-          <div class="text-h6">Generate Service Report</div>
+          <div class="text-h6">{{ editingReportId ? 'Edit' : 'Generate' }} Service Report</div>
           <q-space /><q-btn icon="close" flat round dense v-close-popup />
         </q-card-section>
         <q-separator />
-        <q-card-section class="q-gutter-md">
-          <q-select
-            v-model="reportForm.type"
-            label="Report Type"
-            :options="[
-              { label: 'Inspection Report', value: 'inspection' },
-              { label: 'Completion Report', value: 'final' },
-              { label: 'Other', value: 'other' },
-            ]"
-            emit-value
-            map-options
-            outlined
+        <q-card-section class="q-gutter-md scroll" style="max-height: 70vh">
+          <div class="row q-col-gutter-sm">
+            <div class="col-12 col-sm-6">
+              <q-select
+                v-model="reportForm.type"
+                label="Report Type"
+                :options="[
+                  { label: 'Inspection Report', value: 'inspection' },
+                  { label: 'Completion Report', value: 'final' },
+                  { label: 'Other', value: 'other' },
+                ]"
+                emit-value
+                map-options
+                outlined
+                dense
+                :dark="$q.dark.isActive"
+              />
+            </div>
+            <div class="col-12 col-sm-6">
+              <q-input v-model="reportForm.customerName" label="Customer Name" outlined dense />
+            </div>
+          </div>
+
+          <q-expansion-item
+            label="Device & Issue Details"
+            icon="laptop"
+            header-class="text-primary text-weight-bold"
             dense
-            :dark="$q.dark.isActive"
-          />
+            bordered
+            class="overflow-hidden border-radius-8"
+          >
+            <q-card>
+              <q-card-section class="q-gutter-sm">
+                <div class="row q-col-gutter-sm">
+                  <div class="col-6">
+                    <q-input v-model="reportForm.deviceType" label="Device Type" outlined dense />
+                  </div>
+                  <div class="col-6">
+                    <q-input v-model="reportForm.brand" label="Brand" outlined dense />
+                  </div>
+                  <div class="col-6">
+                    <q-input v-model="reportForm.model" label="Model" outlined dense />
+                  </div>
+                  <div class="col-6">
+                    <q-input v-model="reportForm.serialNo" label="Serial No" outlined dense />
+                  </div>
+                </div>
+                <q-input
+                  v-model="reportForm.issueReported"
+                  label="Reported Issue"
+                  type="textarea"
+                  outlined
+                  dense
+                  autogrow
+                />
+                <q-input
+                  v-model="reportForm.inspectionNotes"
+                  label="Inspection Notes"
+                  type="textarea"
+                  outlined
+                  dense
+                  autogrow
+                />
+              </q-card-section>
+            </q-card>
+          </q-expansion-item>
+
           <q-input
             v-model="reportForm.summary"
-            label="Summary Notes"
+            label="Executive Summary / Final Notes"
             type="textarea"
-            rows="3"
             outlined
             dense
-            :dark="$q.dark.isActive"
+            autogrow
+            placeholder="Enter professional summary of current work..."
           />
-          <div class="text-subtitle2 q-mt-sm">Include Sections</div>
-          <div class="q-gutter-sm">
+          <div class="text-subtitle2 q-mt-sm">Included Sections</div>
+          <div class="q-gutter-sm row">
             <q-toggle
               v-model="reportForm.includeDevice"
               label="Device Details"
@@ -725,17 +884,118 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useServiceStore } from 'src/stores/serviceStore'
+import { useAuthStore } from 'src/stores/auth'
+import { supabase } from 'src/boot/supabase'
+import { downloadServiceJobPDF } from 'src/services/serviceReportPdf'
 
 const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
 const store = useServiceStore()
+const authStore = useAuthStore()
+
+// ── Inventory items for Part picker ──────────────────────────────
+const inventoryItems = ref([])
+const filteredInventoryItems = ref([])
+const useManualItemName = ref(false)
+
+async function loadInventoryItems() {
+  const companyId = authStore.currentBranch?.company_id
+  if (!companyId) return
+  const { data } = await supabase
+    .from('items')
+    .select('id, name, code, selling_price')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('name')
+    .limit(500)
+  inventoryItems.value = data || []
+  filteredInventoryItems.value = data || []
+}
+
+function filterInventoryItems(val, update) {
+  update(() => {
+    const q = (val || '').toLowerCase()
+    filteredInventoryItems.value = q
+      ? inventoryItems.value.filter(
+          (i) => i.name.toLowerCase().includes(q) || (i.code || '').toLowerCase().includes(q),
+        )
+      : inventoryItems.value
+  })
+}
+
+function onInventoryItemSelected(itemId) {
+  if (!itemId) {
+    partForm.item_name = ''
+    partForm.unit_price = 0
+    return
+  }
+  const item = inventoryItems.value.find((i) => i.id === itemId)
+  if (item) {
+    partForm.item_name = item.name
+    partForm.unit_price = Number(item.selling_price || 0)
+  }
+}
+
+function switchToManual(prefill = '') {
+  useManualItemName.value = true
+  partForm.item_name = prefill
+  partForm.selectedItem = null
+}
+
+function switchToSelector() {
+  useManualItemName.value = false
+  partForm.item_name = ''
+  partForm.selectedItem = null
+  partForm.unit_price = 0
+}
+
+async function downloadPdf() {
+  if (!job.value?.id) return
+  $q.loading.show({ message: 'Generating PDF...' })
+  try {
+    await downloadServiceJobPDF(job.value.id)
+    $q.notify({ type: 'positive', message: 'Report downloaded successfully' })
+  } catch (err) {
+    console.error(err)
+    $q.notify({ type: 'negative', message: 'Failed to generate PDF: ' + err.message })
+  } finally {
+    $q.loading.hide()
+  }
+}
+
+function confirmDelete() {
+  if (!job.value) return
+  $q.dialog({
+    title: 'Confirm Delete',
+    message: `Are you sure you want to delete service job ${job.value.job_no}? This cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      flat: true,
+      color: 'negative',
+      label: 'Delete',
+    },
+  }).onOk(async () => {
+    $q.loading.show({ message: 'Deleting job...' })
+    try {
+      await store.deleteJob(job.value.id)
+      $q.notify({ type: 'positive', message: 'Job deleted successfully' })
+      router.push('/services/jobs')
+    } catch (err) {
+      $q.notify({ type: 'negative', message: 'Failed to delete: ' + err.message })
+    } finally {
+      $q.loading.hide()
+    }
+  })
+}
 
 const activeTab = ref('overview')
 const showDiagDialog = ref(false)
 const showPartDialog = ref(false)
 const showReportDialog = ref(false)
 const generatingReport = ref(false)
+const editingReportId = ref(null)
 
 const job = computed(() => store.currentJob)
 
@@ -802,6 +1062,7 @@ const diagColumns = [
 
 // Parts form
 const partForm = reactive({
+  selectedItem: null, // inventory item id
   item_name: '',
   qty: 1,
   unit_price: 0,
@@ -825,7 +1086,7 @@ const partColumns = [
     align: 'right',
     format: (v) => 'LKR ' + Number(v || 0).toLocaleString(),
   },
-  { name: 'notes', label: 'Notes', field: 'notes', align: 'left' },
+  { name: 'notes', label: 'SN / Notes', field: 'notes', align: 'left' },
   { name: 'actions', label: '', field: 'actions', align: 'center' },
 ]
 
@@ -833,6 +1094,13 @@ const partColumns = [
 const reportForm = reactive({
   type: 'inspection',
   summary: '',
+  customerName: '',
+  deviceType: '',
+  brand: '',
+  model: '',
+  serialNo: '',
+  issueReported: '',
+  inspectionNotes: '',
   includeDevice: true,
   includeDiagnosis: true,
   includeParts: true,
@@ -885,19 +1153,28 @@ function goToBillingWithJobDetails() {
       : Number(j.total_estimated_cost || 0)
 
   // Parts used as separate line items
-  const partLines = (store.partsUsed || []).map((p) => ({
-    name: p.item_name,
-    qty: Number(p.qty || 1),
-    price: Number(p.unit_price || 0),
-    total: Number(p.total || p.qty * p.unit_price || 0),
-  }))
+  // Issue Reported and Inspection notes both flow to billing notes
+  let billNotes = `Service Job: ${j.job_no}`
+  if (j.issue_reported_by_customer) billNotes += `\nReported Issue: ${j.issue_reported_by_customer}`
+  if (j.inspection_notes) billNotes += `\nInspection Notes: ${j.inspection_notes}`
+
+  // Parts used as separate line items
+  const partLines = (store.partsUsed || []).map((p) => {
+    // Include serial number/notes in the line item name if available
+    const itemName = p.notes ? `${p.item_name} (SN: ${p.notes})` : p.item_name
+    return {
+      name: itemName,
+      qty: Number(p.qty || 1),
+      price: Number(p.unit_price || 0),
+      total: Number(p.total || p.qty * p.unit_price || 0),
+    }
+  })
 
   const prefill = {
     source: 'service_job',
     job_id: j.id,
     job_no: j.job_no,
-    // Issue Reported goes into notes field on invoice
-    notes: j.issue_reported_by_customer || `Service Job: ${j.job_no}`,
+    notes: billNotes,
     // Customer details
     customer_id: j.customer_id || null,
     customer_name: j.customer?.name || null,
@@ -956,14 +1233,22 @@ async function removeDiag(id) {
 }
 
 async function addPartItem() {
-  if (!partForm.item_name) {
+  const name = partForm.item_name || ''
+  if (!name.trim()) {
     $q.notify({ type: 'warning', message: 'Part name is required' })
     return
   }
   try {
-    await store.addPart(job.value.id, { ...partForm })
+    await store.addPart(job.value.id, {
+      item_id: partForm.selectedItem || null,
+      item_name: name.trim(),
+      qty: partForm.qty,
+      unit_price: partForm.unit_price,
+      notes: partForm.notes,
+    })
     showPartDialog.value = false
-    Object.assign(partForm, { item_name: '', qty: 1, unit_price: 0, notes: '' })
+    Object.assign(partForm, { selectedItem: null, item_name: '', qty: 1, unit_price: 0, notes: '' })
+    useManualItemName.value = false
     $q.notify({ type: 'positive', message: 'Part added' })
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
@@ -979,7 +1264,65 @@ async function removePart(id) {
 }
 
 function openReportDialog() {
+  editingReportId.value = null
+  Object.assign(reportForm, {
+    type: 'inspection',
+    summary: '',
+    customerName: job.value.customer?.name || 'Walk-in',
+    deviceType: job.value.device_type || '',
+    brand: job.value.brand || '',
+    model: job.value.model || '',
+    serialNo: job.value.serial_no || '',
+    issueReported: job.value.issue_reported_by_customer || '',
+    inspectionNotes: job.value.inspection_notes || '',
+    includeDevice: true,
+    includeDiagnosis: true,
+    includeParts: true,
+    includeCosts: true,
+    includeWarranty: true,
+  })
   showReportDialog.value = true
+}
+
+function editReport(rpt) {
+  editingReportId.value = rpt.id
+  const content = rpt.content_json || {}
+  const j = content.job || {}
+  Object.assign(reportForm, {
+    type: rpt.report_type,
+    summary: content.summary || '',
+    customerName: j.customer?.name || 'Walk-in',
+    deviceType: j.device_type || '',
+    brand: j.brand || '',
+    model: j.model || '',
+    serialNo: j.serial_no || '',
+    issueReported: j.issue_reported_by_customer || '',
+    inspectionNotes: j.inspection_notes || '',
+    includeDevice: content.sections?.device !== false,
+    includeDiagnosis: content.sections?.diagnosis !== false,
+    includeParts: content.sections?.parts !== false,
+    includeCosts: content.sections?.costs !== false,
+    includeWarranty: content.sections?.warranty !== false,
+  })
+  showReportDialog.value = true
+}
+
+function deleteReport(rpt) {
+  $q.dialog({
+    title: 'Delete Report',
+    message: `Are you sure you want to delete report <b>${rpt.report_no}</b>?`,
+    html: true,
+    cancel: true,
+    persistent: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await store.deleteReport(rpt.id)
+      $q.notify({ type: 'positive', message: 'Report deleted' })
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete report' })
+    }
+  })
 }
 
 async function generateReport() {
@@ -988,7 +1331,16 @@ async function generateReport() {
     const content = {
       report_type: reportForm.type,
       summary: reportForm.summary,
-      job: { ...job.value },
+      job: {
+        ...job.value,
+        customer: { ...(job.value.customer || {}), name: reportForm.customerName },
+        device_type: reportForm.deviceType,
+        brand: reportForm.brand,
+        model: reportForm.model,
+        serial_no: reportForm.serialNo,
+        issue_reported_by_customer: reportForm.issueReported,
+        inspection_notes: reportForm.inspectionNotes,
+      },
       diagnosis: reportForm.includeDiagnosis ? [...store.diagnosisItems] : [],
       parts: reportForm.includeParts ? [...store.partsUsed] : [],
       sections: {
@@ -1000,21 +1352,30 @@ async function generateReport() {
       },
     }
 
-    const report = await store.createReport(job.value.id, reportForm.type, content)
+    if (editingReportId.value) {
+      await store.updateReport(editingReportId.value, {
+        report_type: reportForm.type,
+        content_json: content,
+      })
+      $q.notify({ type: 'positive', message: 'Report updated' })
+    } else {
+      const report = await store.createReport(job.value.id, reportForm.type, content)
+      $q.notify({ type: 'positive', message: 'Report generated' })
+      // Auto print after creation
+      printReport(report)
+    }
     showReportDialog.value = false
-
-    // Print report
-    printReport(report)
-
-    $q.notify({ type: 'positive', message: `Report ${report.report_no} generated` })
-  } catch (err) {
-    $q.notify({ type: 'negative', message: err.message })
+  } catch {
+    $q.notify({
+      type: 'negative',
+      message: (editingReportId.value ? 'Failed to update' : 'Failed to generate') + ' report',
+    })
   } finally {
     generatingReport.value = false
   }
 }
 
-function printReport(report) {
+function printReport(report, autoPrint = true) {
   const content = report.content_json || {}
   const j = content.job || job.value || {}
   const diag = content.diagnosis || []
@@ -1077,7 +1438,7 @@ function printReport(report) {
         <h2>${title}</h2>
       </div>
       <div class="logo">
-        <img src="/logo.jpg" alt="Vision Computers">
+        <img src="/logo.jpg" alt="Vision Computers Logo">
       </div>
     </div>
     <div class="report-meta">
@@ -1121,11 +1482,12 @@ function printReport(report) {
       </div>`
   }
 
-  // Issue
+  // Issue & Inspection Notes
   html += `
     <div class="section">
-      <div class="section-title">Issue Reported</div>
-      <p style="font-size:13px">${j.issue_reported_by_customer || 'N/A'}</p>
+      <div class="section-title">Issue & Inspection</div>
+      <div style="font-size:13px; margin-bottom: 8px;"><strong>Reported Issue:</strong> ${j.issue_reported_by_customer || 'N/A'}</div>
+      <div style="font-size:13px;"><strong>Inspection Notes:</strong> ${j.inspection_notes || 'N/A'}</div>
     </div>`
 
   // Diagnosis
@@ -1154,7 +1516,7 @@ function printReport(report) {
       <div class="section">
         <div class="section-title">Parts Used</div>
         <table>
-          <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>Notes</th></tr>
+          <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>SN / Notes</th></tr>
           ${parts
             .map(
               (p) => `<tr>
@@ -1202,13 +1564,14 @@ function printReport(report) {
       <div><div class="sig-box">Technician Signature</div></div>
       <div><div class="sig-box">Customer Signature</div></div>
     </div>
-    <div class="footer">Thank you for choosing Vision Core. For questions, contact us at support@visioncore.lk</div>
     </body></html>`
 
   const printWindow = window.open('', '_blank')
   printWindow.document.write(html)
   printWindow.document.close()
-  printWindow.print()
+  if (autoPrint) {
+    printWindow.print()
+  }
 }
 
 function formatDate(d) {
@@ -1249,6 +1612,8 @@ onMounted(async () => {
     router.push('/services/jobs')
     return
   }
+  // Load inventory items for part picker (don't block job loading)
+  loadInventoryItems()
   try {
     await store.fetchJob(jobId)
   } catch (err) {

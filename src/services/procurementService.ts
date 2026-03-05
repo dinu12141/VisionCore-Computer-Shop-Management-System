@@ -401,8 +401,8 @@ export async function getPODetails(poId: string) {
        suppliers(id, name, code, payment_term_id),
        purchase_order_lines(
          *,
-         items!purchase_order_lines_item_id_fkey(id, name, code, purchase_uom_id),
-         uom!purchase_order_lines_uom_id_fkey(id, code, name)
+         items!item_id(id, name, code, purchase_uom_id),
+         uom!uom_id(id, code, name)
        )`,
     )
     .eq('id', poId)
@@ -576,11 +576,11 @@ export async function getGRNDetails(grnId: string) {
       `*, suppliers(id, name, code),
        purchase_orders(id, doc_number),
        warehouses(id, name),
-       goods_receipt_lines(
-         *,
-         items!goods_receipt_lines_item_id_fkey(id, name, code, purchase_uom_id),
-         uom!goods_receipt_lines_uom_id_fkey(id, code, name)
-       ) mapping_lines`,
+         goods_receipt_lines(
+          *,
+          items!item_id(id, name, code, purchase_uom_id),
+          uom!uom_id(id, code, name)
+        ) mapping_lines`,
     )
     .eq('id', grnId)
     .single()
@@ -875,8 +875,8 @@ export async function getInvoiceDetails(invoiceId: string) {
        goods_receipts(id, doc_number),
        ap_invoice_lines(
          *,
-         items!ap_invoice_lines_item_id_fkey(id, name, code, purchase_uom_id),
-         uom!ap_invoice_lines_uom_id_fkey(id, code, name)
+         items!item_id(id, name, code, purchase_uom_id),
+         uom!uom_id(id, code, name)
        )`,
     )
     .eq('id', invoiceId)
@@ -1301,8 +1301,8 @@ export async function getReturnDetails(returnId: string) {
        goods_receipts(id, doc_number),
        purchase_return_lines(
          *,
-         items!purchase_return_lines_item_id_fkey(id, name, code, purchase_uom_id),
-         uom!purchase_return_lines_uom_id_fkey(id, code, name)
+         items!item_id(id, name, code, purchase_uom_id),
+         uom!uom_id(id, code, name)
        )`,
     )
     .eq('id', returnId)

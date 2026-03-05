@@ -2,8 +2,12 @@
   <q-page class="q-pa-lg">
     <div class="row items-center q-mb-lg">
       <div class="col">
-        <h1 class="text-h4 text-weight-bolder q-ma-none text-gradient">Create Service Job</h1>
-        <div class="text-subtitle2 text-grey-6">Register a new device repair ticket</div>
+        <h1 class="text-h4 text-weight-bolder q-ma-none text-gradient">
+          {{ isEdit ? 'Edit Service Job' : 'Create Service Job' }}
+        </h1>
+        <div class="text-subtitle2 text-grey-6">
+          {{ isEdit ? 'Update details for ' + form.job_no : 'Register a new device repair ticket' }}
+        </div>
       </div>
       <div class="col-auto">
         <q-btn flat icon="arrow_back" label="Back" @click="$router.back()" />
@@ -78,14 +82,51 @@
               <q-select
                 v-model="form.device_type"
                 label="Device Type *"
-                :options="deviceTypes"
+                :options="deviceTypeOptions"
+                option-value="name"
+                option-label="name"
                 emit-value
                 map-options
                 outlined
                 dense
                 :dark="$q.dark.isActive"
                 :rules="[(v) => !!v || 'Required']"
-              />
+              >
+                <template v-slot:option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section avatar>
+                      <q-avatar
+                        :icon="scope.opt.icon || 'devices'"
+                        size="28px"
+                        color="primary"
+                        text-color="white"
+                      />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt.name }}</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+                <template v-slot:after>
+                  <q-btn
+                    flat
+                    round
+                    icon="add"
+                    color="primary"
+                    @click="openAddDeviceTypeDialog"
+                    dense
+                  >
+                    <q-tooltip>Add New Device Type</q-tooltip>
+                  </q-btn>
+                </template>
+                <template v-slot:no-option>
+                  <q-item clickable @click="openAddDeviceTypeDialog">
+                    <q-item-section class="text-primary text-weight-bold"
+                      >+ Add New Device Type</q-item-section
+                    >
+                  </q-item>
+                </template>
+              </q-select>
             </div>
             <div class="col-12 col-md-4">
               <q-input
@@ -228,7 +269,7 @@
             <q-btn
               color="primary"
               icon="save"
-              label="Create Service Job"
+              :label="isEdit ? 'Update Service Job' : 'Create Service Job'"
               @click="submitJob"
               :loading="store.loading"
               size="lg"
@@ -244,11 +285,44 @@
       v-model="showCustomerDialog"
       @saved="onCustomerSaved"
     />
+
+    <!-- Add Device Type Dialog -->
+    <q-dialog v-model="showAddDeviceTypeDialog" persistent>
+      <q-card style="min-width: 340px" :dark="$q.dark.isActive">
+        <q-card-section class="row items-center">
+          <div class="text-h6">Add Device Type</div>
+          <q-space /><q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="q-gutter-md">
+          <q-input
+            v-model="newDeviceTypeName"
+            label="Device Type Name *"
+            outlined
+            dense
+            autofocus
+            :dark="$q.dark.isActive"
+            placeholder="e.g. CCTV Camera, Gaming Console"
+            @keyup.enter="saveNewDeviceType"
+          />
+        </q-card-section>
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            color="primary"
+            label="Add"
+            icon="add"
+            @click="saveNewDeviceType"
+            :loading="savingDeviceType"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useServiceStore } from 'src/stores/serviceStore'
@@ -256,10 +330,16 @@ import { useAuthStore } from 'src/stores/auth'
 import { supabase } from 'src/boot/supabase'
 import CustomerDialog from 'src/components/customers/CustomerDialog.vue'
 
+const props = defineProps({
+  id: { type: String, default: null },
+})
+
 const $q = useQuasar()
 const router = useRouter()
 const store = useServiceStore()
 const authStore = useAuthStore()
+
+const isEdit = computed(() => !!props.id)
 
 const step = ref(1)
 const stepperRef = ref(null)
@@ -269,6 +349,7 @@ const technicianOptions = ref([])
 const showCustomerDialog = ref(false)
 
 const form = reactive({
+  job_no: '',
   customer_id: null,
   device_type: 'laptop',
   brand: '',
@@ -283,15 +364,11 @@ const form = reactive({
   inspection_notes: '',
 })
 
-const deviceTypes = [
-  { label: 'Laptop', value: 'laptop' },
-  { label: 'Desktop', value: 'desktop' },
-  { label: 'Printer', value: 'printer' },
-  { label: 'Phone', value: 'phone' },
-  { label: 'Tablet', value: 'tablet' },
-  { label: 'Monitor', value: 'monitor' },
-  { label: 'Other', value: 'other' },
-]
+const deviceTypeOptions = ref([])
+const showAddDeviceTypeDialog = ref(false)
+const newDeviceTypeName = ref('')
+const savingDeviceType = ref(false)
+let realtimeChannel = null
 
 const priorityOptions = [
   { label: 'Low', value: 'low' },
@@ -325,6 +402,76 @@ function filterCustomers(val, update) {
         )
       : customers.value
   })
+}
+
+async function loadDeviceTypes() {
+  const companyId = authStore.currentBranch?.company_id
+  if (!companyId) return
+  const { data } = await supabase
+    .from('service_device_types')
+    .select('id, name, icon, sort_order')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+  deviceTypeOptions.value = data || []
+  // Set default
+  if (!form.device_type && deviceTypeOptions.value.length > 0) {
+    form.device_type = deviceTypeOptions.value[0].name
+  }
+}
+
+function setupRealtimeDeviceTypes() {
+  const companyId = authStore.currentBranch?.company_id
+  if (!companyId) return
+  if (realtimeChannel) supabase.removeChannel(realtimeChannel)
+  realtimeChannel = supabase
+    .channel('service_device_types_' + companyId)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'service_device_types',
+        filter: `company_id=eq.${companyId}`,
+      },
+      () => {
+        loadDeviceTypes()
+      },
+    )
+    .subscribe()
+}
+
+function openAddDeviceTypeDialog() {
+  newDeviceTypeName.value = ''
+  showAddDeviceTypeDialog.value = true
+}
+
+async function saveNewDeviceType() {
+  const name = newDeviceTypeName.value.trim()
+  if (!name) {
+    $q.notify({ type: 'warning', message: 'Device type name is required' })
+    return
+  }
+  const companyId = authStore.currentBranch?.company_id
+  if (!companyId) return
+  savingDeviceType.value = true
+  try {
+    const { data, error } = await supabase
+      .from('service_device_types')
+      .insert({ company_id: companyId, name, icon: 'devices' })
+      .select()
+      .single()
+    if (error) throw error
+    // Append and select it
+    deviceTypeOptions.value.push(data)
+    form.device_type = data.name
+    showAddDeviceTypeDialog.value = false
+    $q.notify({ type: 'positive', message: `Device type "${name}" added` })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message })
+  } finally {
+    savingDeviceType.value = false
+  }
 }
 
 async function loadCustomers() {
@@ -378,31 +525,49 @@ async function submitJob() {
   }
 
   try {
-    const job = await store.createJob({
+    const commonData = {
       customer_id: form.customer_id,
       device_type: form.device_type,
       brand: form.brand,
       model: form.model,
       serial_no: form.serial_no,
       accessories_received: form.accessories,
-      issue_reported: form.issue_reported,
       priority: form.priority,
-      technician_id: form.technician_id,
       estimated_fix_date: form.estimated_fix_date || null,
       warranty_days: form.warranty_days || 0,
       inspection_notes: form.inspection_notes,
-    })
+    }
 
-    $q.notify({
-      type: 'positive',
-      icon: 'check_circle',
-      message: `Service Job Created: ${job.job_no}`,
-      caption: 'You can now add diagnosis & parts',
-    })
+    let job
+    if (isEdit.value) {
+      job = await store.updateJob(props.id, {
+        ...commonData,
+        issue_reported_by_customer: form.issue_reported,
+        assigned_technician_id: form.technician_id,
+      })
+      $q.notify({
+        type: 'positive',
+        icon: 'check_circle',
+        message: `Service Job Updated: ${job.job_no}`,
+      })
+    } else {
+      job = await store.createJob({
+        ...commonData,
+        issue_reported: form.issue_reported,
+        technician_id: form.technician_id,
+      })
+      $q.notify({
+        type: 'positive',
+        icon: 'check_circle',
+        message: `Service Job Created: ${job.job_no}`,
+        caption: 'You can now add diagnosis & parts',
+      })
+    }
 
     router.push(`/services/jobs/${job.id}`)
   } catch (err) {
-    $q.notify({ type: 'negative', message: 'Failed to create job: ' + err.message })
+    const action = isEdit.value ? 'update' : 'create'
+    $q.notify({ type: 'negative', message: `Failed to ${action} job: ` + err.message })
   }
 }
 
@@ -421,7 +586,57 @@ function onCustomerSaved(newCustomer) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadCustomers(), loadTechnicians()])
+  if (authStore.currentBranch?.company_id) {
+    await Promise.all([loadCustomers(), loadTechnicians(), loadDeviceTypes()])
+    setupRealtimeDeviceTypes()
+
+    if (isEdit.value) {
+      $q.loading.show({ message: 'Fetching job details...' })
+      try {
+        const { data, error } = await supabase
+          .from('service_jobs')
+          .select('*')
+          .eq('id', props.id)
+          .single()
+        if (error) throw error
+
+        if (data) {
+          form.job_no = data.job_no
+          form.customer_id = data.customer_id
+          form.device_type = data.device_type
+          form.brand = data.brand || ''
+          form.model = data.model || ''
+          form.serial_no = data.serial_no || ''
+          form.accessories = data.accessories_received || []
+          form.issue_reported = data.issue_reported_by_customer || ''
+          form.priority = data.priority
+          form.technician_id = data.assigned_technician_id
+          form.estimated_fix_date = data.estimated_fix_date || ''
+          form.warranty_days = data.warranty_days || 0
+          form.inspection_notes = data.inspection_notes || ''
+        }
+      } catch (err) {
+        $q.notify({ type: 'negative', message: 'Failed to load job: ' + err.message })
+        router.push('/services/jobs')
+      } finally {
+        $q.loading.hide()
+      }
+    }
+  }
+})
+
+watch(
+  () => authStore.currentBranch?.company_id,
+  async (companyId) => {
+    if (companyId) {
+      await Promise.all([loadCustomers(), loadTechnicians(), loadDeviceTypes()])
+      setupRealtimeDeviceTypes()
+    }
+  },
+)
+
+onUnmounted(() => {
+  if (realtimeChannel) supabase.removeChannel(realtimeChannel)
 })
 </script>
 

@@ -35,16 +35,9 @@ export const ROLE_ROUTE_ACCESS: Partial<Record<UserRole, string[]>> = {
     '/search',
   ],
 
-  finance: [
-    '/finance',
-    '/collections',
-    '/reports/invoices',
-    '/reports/payments',
-    '/billing/history',
-    '/search',
-  ],
+  finance: ['/finance', '/collections', '/reports', '/billing/history', '/search'],
 
-  inventory: ['/inventory', '/search'],
+  inventory: ['/inventory', '/reports/hub', '/search'],
 
   hr: ['/search'],
 
@@ -193,10 +186,16 @@ export const NAV_ITEMS: NavItem[] = [
   {
     label: 'Reports',
     icon: 'bar_chart',
-    roles: ['admin', 'manager', 'user', 'finance'],
+    roles: ['admin', 'manager', 'user', 'finance', 'inventory'],
     section: 'INTELLIGENCE',
     sectionStart: true,
     children: [
+      {
+        label: 'Reports Hub',
+        icon: 'summarize',
+        to: '/reports/hub',
+        roles: ['admin', 'manager', 'user', 'finance', 'inventory'],
+      },
       {
         label: 'All Invoices',
         icon: 'receipt_long',

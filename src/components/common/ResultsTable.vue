@@ -50,6 +50,19 @@
     <template v-slot:body-cell-actions="props">
       <q-td :props="props" align="center">
         <q-btn
+          v-if="props.row.entity_type === 'customer'"
+          flat
+          round
+          dense
+          icon="receipt_long"
+          color="green-7"
+          size="sm"
+          class="q-mr-xs"
+          @click="router.push({ name: 'billing', query: { customerId: props.row.entity_id } })"
+        >
+          <q-tooltip>Create Invoice</q-tooltip>
+        </q-btn>
+        <q-btn
           flat
           round
           dense

@@ -46,6 +46,9 @@
           >
             <q-tooltip>{{ props.row.is_active ? 'Deactivate' : 'Activate' }}</q-tooltip>
           </q-btn>
+          <q-btn flat dense round icon="delete" color="negative" @click="confirmDelete(props.row)">
+            <q-tooltip>Delete Supplier</q-tooltip>
+          </q-btn>
         </q-td>
       </template>
     </q-table>
@@ -156,6 +159,7 @@ const {
   listSuppliers,
   createSupplier,
   updateSupplier,
+  deleteSupplier,
   generateNextSupplierCode,
 } = useSupplierList()
 
@@ -239,5 +243,36 @@ async function toggleActive(supplier) {
   } catch (e) {
     $q.notify({ type: 'negative', message: e.message || 'Failed to update status.' })
   }
+}
+
+function confirmDelete(supplier) {
+  $q.dialog({
+    title: 'Delete Supplier',
+    message: `Are you sure you want to permanently delete <b>${supplier.name}</b>? This cannot be undone.`,
+    html: true,
+    cancel: true,
+    persistent: true,
+    ok: { label: 'Delete', color: 'negative', flat: true },
+  }).onOk(async () => {
+    try {
+      await deleteSupplier(supplier.id)
+      $q.notify({
+        type: 'positive',
+        message: `${supplier.name} deleted successfully.`,
+        icon: 'delete',
+      })
+    } catch (e) {
+      const msg = e.message || ''
+      const isFkey =
+        msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('violates')
+      $q.notify({
+        type: 'negative',
+        message: isFkey
+          ? `Cannot delete: ${supplier.name} is linked to existing records. Deactivate it instead.`
+          : `Failed to delete: ${msg}`,
+        timeout: 6000,
+      })
+    }
+  })
 }
 </script>

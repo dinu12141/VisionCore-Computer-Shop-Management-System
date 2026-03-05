@@ -13,13 +13,15 @@
         />
         <div>
           <h1 class="text-h4 text-weight-bolder q-ma-none text-primary">
-            {{ form.isVatInvoice ? 'Tax Invoice' : 'Billing' }}
+            {{ isEditMode ? 'Edit Invoice' : form.isVatInvoice ? 'Tax Invoice' : 'Billing' }}
           </h1>
           <div class="text-subtitle2 text-grey-7">
             {{
-              form.isVatInvoice
-                ? 'Create VAT-inclusive tax invoices'
-                : 'Create professional invoices for your clients'
+              isEditMode
+                ? `Updating Invoice: ${existingInvoiceNo}`
+                : form.isVatInvoice
+                  ? 'Create VAT-inclusive tax invoices'
+                  : 'Create professional invoices for your clients'
             }}
           </div>
         </div>
@@ -282,7 +284,7 @@
             <q-btn
               unelevated
               color="primary"
-              label="Complete & Issue Invoice"
+              :label="isEditMode ? 'Update Invoice' : 'Complete & Issue Invoice'"
               icon="check_circle"
               class="full-width q-mt-xl text-weight-bold q-py-sm"
               style="border-radius: 8px"
@@ -337,6 +339,9 @@ const currentDate = date.formatDate(Date.now(), 'YYYY-MM-DD')
 
 const showPrintDialog = ref(false)
 const invoiceToPrint = ref(null)
+const isEditMode = ref(false)
+const editId = ref(null)
+const existingInvoiceNo = ref('')
 
 const walkIn = reactive({
   name: '',
@@ -389,9 +394,64 @@ const selectedCustomerData = computed(() =>
 
 onMounted(async () => {
   await customerStore.fetchCategories()
+
+  // ── Edit Mode Detection ──────────────────────────────────────────
+  if (route.query.editId) {
+    isEditMode.value = true
+    editId.value = route.query.editId
+    try {
+      const inv = await invoiceStore.getInvoice(editId.value)
+      existingInvoiceNo.value = inv.invoice_no
+      selectedCustomerId.value = inv.customer_id
+
+      // Map basic form fields
+      form.payment_type = inv.payment_type || 'cash'
+      form.status = inv.status || 'issued'
+      form.globalDiscount = Number(inv.discount || 0)
+      form.paidAmount = Number(inv.paid_amount || 0)
+      form.notes = inv.notes || ''
+      form.isVatInvoice = !!inv.is_vat_invoice
+      form.isPartPayment = Number(inv.balance || 0) > 0
+      form.collection_date = inv.collection_date || ''
+
+      // Map items
+      items.value = (inv.items || []).map((i) => ({
+        product_id: i.product_id,
+        description: i.description,
+        item_code: i.item_code,
+        qty: i.qty,
+        unit_price: i.unit_price,
+        discount: i.discount,
+        line_total: i.line_total,
+        warranty: i.warranty,
+      }))
+
+      if (inv.customer_snapshot && !inv.customer_id) {
+        walkIn.name = inv.customer_snapshot.name || ''
+        walkIn.phone = inv.customer_snapshot.phone || ''
+        walkIn.address = inv.customer_snapshot.address || ''
+        walkIn.tax_number = inv.customer_snapshot.tax_number || ''
+      }
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to load invoice for editing' })
+    }
+    return
+  }
+
+  // ── Customer Direct Prefill ──────────────────────────────────────────
   if (route.query.customerId) {
-    selectedCustomerId.value = route.query.customerId
-    await customerStore.fetchCustomers()
+    try {
+      await customerStore.fetchCustomers()
+      selectedCustomerId.value = route.query.customerId
+      $q.notify({
+        type: 'info',
+        message: 'Customer selected from list',
+        icon: 'person',
+        timeout: 1000,
+      })
+    } catch {
+      // ignore
+    }
   }
 
   // ── Service Job Prefill ────────────────────────────────────────────
@@ -535,8 +595,14 @@ async function submitInvoice() {
       collection_date: form.isPartPayment || totals.value.balance > 0 ? form.collection_date : null,
     }
 
-    const invoice = await invoiceStore.createInvoice(payload, items.value)
-    $q.notify({ type: 'positive', message: 'Invoice issued successfully!' })
+    const invoice = isEditMode.value
+      ? await invoiceStore.updateInvoice(editId.value, payload, items.value)
+      : await invoiceStore.createInvoice(payload, items.value)
+
+    $q.notify({
+      type: 'positive',
+      message: isEditMode.value ? 'Invoice updated successfully!' : 'Invoice issued successfully!',
+    })
 
     // Open Print Preview Dialog In-page
     invoiceToPrint.value = invoice

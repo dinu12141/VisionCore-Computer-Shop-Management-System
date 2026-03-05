@@ -23,6 +23,10 @@ const routes = [
 
       // ── Reports ──────────────────────────────────────────────────
       {
+        path: 'reports/hub',
+        component: () => import('pages/reports/ReportsHub.vue'),
+      },
+      {
         path: 'reports/sales',
         component: () => import('pages/reports/SalesReport.vue'),
       },
@@ -101,6 +105,12 @@ const routes = [
       {
         path: 'services/new',
         component: () => import('pages/services/CreateJob.vue'),
+      },
+      {
+        path: 'services/edit/:id',
+        name: 'service-job-edit',
+        component: () => import('pages/services/CreateJob.vue'),
+        props: true,
       },
       {
         path: 'services/jobs/:id',
