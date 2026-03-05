@@ -2,16 +2,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { supabase } from 'src/boot/supabase'
 
-function formatCurrency(val) {
-  return (
-    'LKR ' +
-    (Number(val) || 0).toLocaleString('en-LK', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  )
-}
-
 export async function downloadServiceJobPDF(jobId) {
   // 1. Fetch data
   const { data: job, error: jobErr } = await supabase
@@ -167,13 +157,8 @@ export async function downloadServiceJobPDF(jobId) {
     autoTable(doc, {
       startY: currentY,
       margin: { left: margin, right: margin },
-      head: [['Category', 'Issue', 'Final Cost', 'Fixed']],
-      body: diag.map((d) => [
-        d.category || '-',
-        d.error_title || '-',
-        formatCurrency(d.final_cost || 0),
-        d.is_fixed ? 'Yes' : 'No',
-      ]),
+      head: [['Category', 'Issue', 'Fixed']],
+      body: diag.map((d) => [d.category || '-', d.error_title || '-', d.is_fixed ? 'Yes' : 'No']),
       theme: 'grid',
       headStyles: { fillColor: [79, 70, 229], fontSize: 8, cellPadding: 2 },
       styles: { fontSize: 8, cellPadding: 1.5 },
@@ -193,14 +178,8 @@ export async function downloadServiceJobPDF(jobId) {
     autoTable(doc, {
       startY: currentY,
       margin: { left: margin, right: margin },
-      head: [['Item Name', 'Qty', 'Unit Price', 'Total', 'Notes / SN']],
-      body: parts.map((p) => [
-        p.item_name || '-',
-        p.qty,
-        formatCurrency(p.unit_price),
-        formatCurrency(p.total),
-        p.notes || '-',
-      ]),
+      head: [['Item Name', 'Qty', 'Notes / SN']],
+      body: parts.map((p) => [p.item_name || '-', p.qty, p.notes || '-']),
       theme: 'grid',
       headStyles: { fillColor: [245, 158, 11], fontSize: 8, cellPadding: 2 },
       styles: { fontSize: 8, cellPadding: 1.5 },
@@ -213,25 +192,6 @@ export async function downloadServiceJobPDF(jobId) {
   doc.setDrawColor(226, 232, 240)
   doc.line(margin, currentY, 210 - margin, currentY)
   currentY += 4
-
-  // ---------- COST SUMMARY + WARRANTY (side by side) ----------
-  doc.setFontSize(9)
-  doc.setTextColor(79, 70, 229)
-  doc.setFont('helvetica', 'bold')
-  doc.text('COST SUMMARY', margin, currentY)
-  currentY += 5
-
-  doc.setFontSize(8.5)
-  doc.setTextColor(15, 23, 42)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Estimated Cost: ${formatCurrency(job.total_estimated_cost)}`, margin, currentY)
-  doc.text(`Final Cost: ${formatCurrency(job.total_final_cost)}`, margin + 70, currentY)
-  doc.text(
-    `Payment Status: ${job.payment_status?.toUpperCase() || 'UNPAID'}`,
-    margin + 135,
-    currentY,
-  )
-  currentY += 5
 
   // ---------- WARRANTY ----------
   if (job.warranty_days > 0) {
@@ -252,7 +212,7 @@ export async function downloadServiceJobPDF(jobId) {
   }
 
   // ---------- SIGNATURES ----------
-  currentY += 6
+  currentY = Math.max(currentY + 10, 250) // Move signatures further down to fill page
   doc.setFontSize(8.5)
   doc.setTextColor(15, 23, 42)
   doc.setFont('helvetica', 'normal')

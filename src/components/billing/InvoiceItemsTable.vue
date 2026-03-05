@@ -21,7 +21,18 @@
             :options="itemOptions"
             @filter="filterItems"
             @update:model-value="(val) => onItemSelected(val, props.row)"
-            placeholder="Search item..."
+            @input-value="
+              (val) => {
+                if (val) props.row.description = val
+              }
+            "
+            @new-value="
+              (val, done) => {
+                props.row.description = val
+                done(val, 'toggle')
+              }
+            "
+            placeholder="Search item or type description..."
             dense
             outlined
             class="full-width"
@@ -47,6 +58,18 @@
         </q-td>
       </template>
 
+      <template v-slot:body-cell-serial_number="props">
+        <q-td :props="props">
+          <q-input
+            v-model="props.row.serial_number"
+            dense
+            outlined
+            placeholder="Serial No"
+            style="width: 140px"
+            @keyup.enter="findItemBySerial(props.row)"
+          />
+        </q-td>
+      </template>
       <template v-slot:body-cell-warranty="props">
         <q-td :props="props">
           <q-input
@@ -135,8 +158,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useQuasar } from 'quasar'
 import { useItemsList } from 'src/services/inventoryService'
+
+const $q = useQuasar()
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -149,10 +175,16 @@ const itemOptions = ref([])
 
 onMounted(async () => {
   await listItems()
+  window.addEventListener('keydown', handleGlobalBarcodeScan)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalBarcodeScan)
 })
 
 const columns = [
   { name: 'description', label: 'Item / Description', align: 'left', field: 'description' },
+  { name: 'serial_number', label: 'Serial No', align: 'left', field: 'serial_number' },
   { name: 'warranty', label: 'Warranty', align: 'left', field: 'warranty' },
   { name: 'qty', label: 'Quantity', align: 'left', field: 'qty' },
   { name: 'unit_price', label: 'Unit Price', align: 'left', field: 'unit_price' },
@@ -189,6 +221,94 @@ function onItemSelected(val, row) {
   }
 }
 
+async function findItemBySerial(row) {
+  const sn = (row.serial_number || '').trim()
+  if (!sn) return
+
+  const needle = sn.toLowerCase()
+  const match = inventoryItems.value.find((item) => {
+    const code = (item.code || '').toLowerCase()
+    const serials = Array.isArray(item.serials) ? item.serials : []
+    return code === needle || serials.some((s) => String(s).toLowerCase() === needle)
+  })
+
+  if (match) {
+    onItemSelected(match, row)
+    $q.notify({
+      type: 'positive',
+      message: `Found item: ${match.name}`,
+      timeout: 1000,
+      position: 'top',
+    })
+    // Auto add next line if this one is filled
+    if (props.items.indexOf(row) === props.items.length - 1) {
+      addItem()
+    }
+  } else {
+    $q.notify({
+      type: 'warning',
+      message: 'No item found with this serial/code',
+      position: 'top',
+    })
+  }
+}
+
+// Global barcode scanner listener
+let barcodeBuffer = ''
+let barcodeTimer = null
+
+function handleGlobalBarcodeScan(e) {
+  // Ignore if user is already typing in an input/textarea/select
+  const activeTag = document.activeElement?.tagName?.toLowerCase()
+  if (['input', 'textarea', 'select'].includes(activeTag)) return
+
+  if (e.key === 'Enter') {
+    if (barcodeBuffer.length >= 3) {
+      handleScannedBarcode(barcodeBuffer)
+    }
+    barcodeBuffer = ''
+  } else if (e.key.length === 1) {
+    barcodeBuffer += e.key
+    clearTimeout(barcodeTimer)
+    barcodeTimer = setTimeout(() => {
+      barcodeBuffer = ''
+    }, 50)
+  }
+}
+
+async function handleScannedBarcode(barcode) {
+  const needle = barcode.toLowerCase()
+  const match = inventoryItems.value.find((item) => {
+    const code = (item.code || '').toLowerCase()
+    const serials = Array.isArray(item.serials) ? item.serials : []
+    return code === needle || serials.some((s) => String(s).toLowerCase() === needle)
+  })
+
+  if (match) {
+    // Find first empty row or add new
+    let targetRow = props.items.find((i) => !i.description && !i.item_code)
+    if (!targetRow) {
+      addItem()
+      await nextTick()
+      targetRow = props.items[props.items.length - 1]
+    }
+    targetRow.serial_number = barcode
+    onItemSelected(match, targetRow)
+    $q.notify({
+      type: 'positive',
+      message: `Added item: ${match.name}`,
+      timeout: 1000,
+      position: 'top',
+    })
+  } else {
+    $q.notify({
+      type: 'warning',
+      message: `Scanned code "${barcode}" not found in inventory`,
+      position: 'top',
+    })
+  }
+}
+
 function addItem() {
   const newItems = [
     ...props.items,
@@ -196,11 +316,10 @@ function addItem() {
       description: '',
       item_code: '',
       qty: 1,
-      unit_price: 0,
-      cost_price: 0,
       discount: 0,
       line_total: 0,
       warranty: '',
+      serial_number: '',
     },
   ]
   emit('update:items', newItems)
@@ -214,11 +333,10 @@ function removeItem(idx) {
       description: '',
       item_code: '',
       qty: 1,
-      unit_price: 0,
-      cost_price: 0,
       discount: 0,
       line_total: 0,
       warranty: '',
+      serial_number: '',
     })
   }
   emit('update:items', newItems)

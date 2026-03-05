@@ -161,56 +161,98 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
       }),
     )
 
-    // Invoices
-    const { data: invs } = await supabase
+    // Invoices (Search by invoice_no or serial number sold)
+    // First, find invoice IDs matching serial numbers sold
+    const { data: soldSerialHits } = await supabase
+      .from('invoice_items')
+      .select('invoice_id, serial_number, description')
+      .ilike('serial_number', pat)
+      .limit(10)
+
+    const soldInvoiceIds = (soldSerialHits || []).map((s) => s.invoice_id)
+
+    // Now search invoices table
+    let invQuery = supabase
       .from('invoices')
       .select('id, invoice_no, total, payment_status, customer_snapshot')
       .eq('company_id', companyId)
-      .or(`invoice_no.ilike.${pat}`)
-      .limit(limit)
-    ;(invs || []).forEach((i) =>
+
+    if (soldInvoiceIds.length > 0) {
+      invQuery = invQuery.or(`invoice_no.ilike.${pat},id.in.(${soldInvoiceIds.join(',')})`)
+    } else {
+      invQuery = invQuery.or(`invoice_no.ilike.${pat}`)
+    }
+
+    const { data: invs } = await invQuery.limit(limit)
+    ;(invs || []).forEach((i) => {
+      const matchedSN = soldSerialHits?.find((sh) => sh.invoice_id === i.id)?.serial_number
       out.push({
         entity_type: 'invoice',
         entity_id: i.id,
         title: i.invoice_no,
-        subtitle: `Customer: ${i.customer_snapshot?.name || 'Walk-in'} | ${i.payment_status} | LKR ${i.total}`,
-        extra: { status: i.payment_status, total: i.total, customer: i.customer_snapshot?.name },
-        score: 75,
-      }),
-    )
+        subtitle: matchedSN
+          ? `Contains SN: ${matchedSN} | Total: LKR ${i.total}`
+          : `Customer: ${i.customer_snapshot?.name || 'Walk-in'} | ${i.payment_status} | LKR ${i.total}`,
+        extra: {
+          status: i.payment_status,
+          total: i.total,
+          customer: i.customer_snapshot?.name,
+          matched_sn: matchedSN,
+        },
+        score: matchedSN ? 90 : 75,
+      })
+    })
 
-    // Items
-    const { data: items } = await supabase
-      .from('items')
-      .select('id, name, code')
+    // Items (Search by name, code, or serial number in inventory)
+    const { data: serialHits } = await supabase
+      .from('item_serials')
+      .select('product_id, serial_number')
       .eq('company_id', companyId)
-      .or(`name.ilike.${pat},code.ilike.${pat}`)
-      .limit(limit)
-    ;(items || []).forEach((i) =>
+      .ilike('serial_number', pat)
+      .limit(10)
+
+    const serialProductIds = (serialHits || []).map((s) => s.product_id)
+
+    let itemQuery = supabase.from('items').select('id, name, code').eq('company_id', companyId)
+
+    if (serialProductIds.length > 0) {
+      itemQuery = itemQuery.or(
+        `name.ilike.${pat},code.ilike.${pat},id.in.(${serialProductIds.join(',')})`,
+      )
+    } else {
+      itemQuery = itemQuery.or(`name.ilike.${pat},code.ilike.${pat}`)
+    }
+
+    const { data: items } = await itemQuery.limit(limit)
+    ;(items || []).forEach((i) => {
+      const matchedSN = serialHits?.find((sh) => sh.product_id === i.id)?.serial_number
       out.push({
         entity_type: 'item',
         entity_id: i.id,
         title: i.name,
-        subtitle: `Code: ${i.code || 'N/A'}`,
-        extra: { code: i.code },
-        score: 70,
-      }),
-    )
+        subtitle: matchedSN
+          ? `In Stock: ${matchedSN} | Code: ${i.code}`
+          : `Code: ${i.code || 'N/A'}`,
+        extra: { code: i.code, matched_sn: matchedSN },
+        score: matchedSN ? 95 : 70,
+      })
+    })
 
     // Service Jobs
     const { data: jobs } = await supabase
       .from('service_jobs')
-      .select('id, job_no, status, device_type, brand, customer_id')
+      .select('id, job_no, status, device_type, brand, serial_no')
       .eq('company_id', companyId)
-      .or(`job_no.ilike.${pat},device_type.ilike.${pat},brand.ilike.${pat}`)
+      .or(`job_no.ilike.${pat},device_type.ilike.${pat},brand.ilike.${pat},serial_no.ilike.${pat}`)
       .limit(limit)
-    ;(jobs || []).forEach((j) =>
+    ;(jobs || []).forEach((j: any) =>
       out.push({
         entity_type: 'service_job',
         entity_id: j.id,
         title: j.job_no,
-        subtitle: `${j.device_type || ''} ${j.brand || ''} | ${j.status || ''}`.trim(),
-        extra: { status: j.status, device: j.device_type },
+        subtitle:
+          `${j.device_type || ''} ${j.brand || ''} | ${j.status || ''} ${j.serial_no ? '| SN: ' + j.serial_no : ''}`.trim(),
+        extra: { status: j.status, device: j.device_type, sn: j.serial_no },
         score: 65,
       }),
     )

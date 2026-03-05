@@ -45,6 +45,8 @@ export const useInvoiceStore = defineStore('invoices', () => {
               total_before_vat: Number(invoiceData.total_before_vat || 0),
             }
           : {}),
+        is_service_invoice: !!invoiceData.is_service_invoice,
+        service_job_id: invoiceData.service_job_id || null,
       }
 
       // The DB trigger handles invoice_no generation
@@ -67,6 +69,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
         discount: Number(item.discount || 0),
         line_total: Number(item.line_total || 0),
         warranty: item.warranty || null,
+        serial_number: item.serial_number || null,
         // Snapshots for financial history accuracy
         selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
         cost_unit_price_snapshot: Number(item.cost_price || 0),
@@ -184,7 +187,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
     const { data: invoice, error: invError } = await supabase
       .from('invoices')
       .select(
-        '*, items:invoice_items(id, invoice_id, product_id, description, item_code, qty, unit_price, discount, line_total, warranty, cost_unit_price_snapshot, selling_unit_price_snapshot)',
+        '*, items:invoice_items(id, invoice_id, product_id, description, item_code, qty, unit_price, discount, line_total, warranty, serial_number, cost_unit_price_snapshot, selling_unit_price_snapshot)',
       )
       .eq('id', id)
       .single()
@@ -312,6 +315,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
         discount: Number(item.discount || 0),
         line_total: Number(item.line_total || 0),
         warranty: item.warranty || null,
+        serial_number: item.serial_number || null,
         selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
         cost_unit_price_snapshot: Number(item.cost_price || 0),
       }))

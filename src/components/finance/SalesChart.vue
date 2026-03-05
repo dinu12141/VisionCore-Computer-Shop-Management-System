@@ -10,19 +10,19 @@
       <div class="text-caption text-grey">Period overview</div>
     </div>
 
-    <div v-if="loading" class="flex flex-center" style="height: 300px">
+    <div v-if="loading" class="flex flex-center" style="height: 450px">
       <q-spinner color="primary" size="3em" />
     </div>
 
     <div
       v-else-if="!data || data.length === 0"
       class="flex flex-center text-grey"
-      style="height: 300px"
+      style="height: 450px"
     >
       No data available for this range
     </div>
 
-    <div v-else class="chart-container relative-position" style="height: 300px">
+    <div v-else class="chart-container relative-position" style="height: 450px">
       <v-chart :option="chartOption" class="full-width full-height" autoresize />
     </div>
   </q-card>

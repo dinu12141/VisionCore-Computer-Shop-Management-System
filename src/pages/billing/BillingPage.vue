@@ -359,6 +359,7 @@ const items = ref([
     discount: 0,
     line_total: 0,
     warranty: '',
+    serial_number: '',
   },
 ])
 
@@ -371,6 +372,8 @@ const form = reactive({
   isPartPayment: false,
   collection_date: '',
   isVatInvoice: false,
+  is_service_invoice: false,
+  service_job_id: null,
 })
 
 const VAT_RATE = 0.18
@@ -424,6 +427,7 @@ onMounted(async () => {
         discount: i.discount,
         line_total: i.line_total,
         warranty: i.warranty,
+        serial_number: i.serial_number,
       }))
 
       if (inv.customer_snapshot && !inv.customer_id) {
@@ -464,6 +468,9 @@ onMounted(async () => {
       sessionStorage.removeItem('billing_prefill') // consume once
 
       if (prefill.source === 'service_job') {
+        form.is_service_invoice = !!prefill.is_service_invoice
+        form.service_job_id = prefill.job_id || null
+
         // Set notes
         if (prefill.notes) form.notes = prefill.notes
 
@@ -477,29 +484,17 @@ onMounted(async () => {
           walkIn.phone = prefill.customer_phone || ''
         }
 
-        // Build line items from parts used
+        // Build line items from combined repairs + parts list
         const lineItems = (prefill.items || []).map((p) => ({
-          description: p.name,
-          item_code: '',
+          description: p.description || '',
+          item_code: p.item_code || '',
           qty: Number(p.qty || 1),
-          unit_price: Number(p.price || 0),
-          discount: 0,
-          line_total: Number(p.total || p.price * p.qty || 0),
-          warranty: '',
+          unit_price: Number(p.unit_price || 0),
+          discount: Number(p.discount || 0),
+          line_total: Number(p.line_total || p.unit_price * p.qty || 0),
+          warranty: p.warranty || '',
+          serial_number: p.serial_number || '',
         }))
-
-        // Add service charge as a separate line
-        if (prefill.service_total > 0) {
-          lineItems.push({
-            description: prefill.service_label || 'Service Charge',
-            item_code: '',
-            qty: 1,
-            unit_price: Number(prefill.service_total),
-            discount: 0,
-            line_total: Number(prefill.service_total),
-            warranty: '',
-          })
-        }
 
         // Only replace default empty row if we have real items
         if (lineItems.length > 0) {
@@ -593,6 +588,8 @@ async function submitInvoice() {
       vat_amount: totals.value.vatAmount,
       total_before_vat: totals.value.total,
       collection_date: form.isPartPayment || totals.value.balance > 0 ? form.collection_date : null,
+      is_service_invoice: form.is_service_invoice,
+      service_job_id: form.service_job_id,
     }
 
     const invoice = isEditMode.value
@@ -618,6 +615,7 @@ async function submitInvoice() {
         discount: 0,
         line_total: 0,
         warranty: '',
+        serial_number: '',
       },
     ]
     walkIn.name = ''

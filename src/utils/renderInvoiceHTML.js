@@ -40,27 +40,38 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
   const items = invoice.items || []
   const itemsHtml = items
-    .map(
-      (item, index) => `
-    <tr class="${index % 2 === 1 ? 'zebra' : ''}">
-      <td class="col-qty text-center">${item.qty}</td>
-      <td class="col-item text-center">${item.item_code || ''}</td>
-      <td class="col-desc">${item.description}</td>
-      <td class="col-uprice text-right">${formatCurrency(item.unit_price)}</td>
-      <td class="col-total text-right">${formatCurrency(item.line_total)}</td>
-    </tr>
-  `,
-    )
+    .map((item, index) => {
+      const sn = item.serial_number || item.serialNumber
+      const warranty = item.warranty
+      let rowHtml = `
+      <tr class="${index % 2 === 1 ? 'zebra' : ''}">
+        <td class="col-qty text-center">${item.qty}</td>
+        <td class="col-desc">
+          <div class="main-desc">${item.description}</div>
+          <div class="item-meta">
+            ${sn ? `<span>SN: ${sn}</span>` : ''}
+            ${warranty ? `<span style="margin-left: 12px;">Warranty: ${warranty}</span>` : ''}
+          </div>
+        </td>
+        <td class="col-uprice text-right">${formatCurrency(item.unit_price)}</td>
+        <td class="col-total text-right">${formatCurrency(item.line_total)}</td>
+      </tr>`
+      return rowHtml
+    })
     .join('')
 
   // Reduced empty rows to 12 to guarantee space for footer and totals on a single page
-  const emptyRowsCount = Math.max(0, 12 - items.length)
+  // Adjusted empty rows count based on content length
+  const emptyRowsCount = Math.max(0, 15 - items.length)
   const emptyRowsHtml = Array(emptyRowsCount)
     .fill(0)
     .map(
       (_, i) => `
     <tr class="${(i + items.length) % 2 === 1 ? 'zebra' : ''}">
-      <td class="col-qty"></td><td class="col-item"></td><td class="col-desc"></td><td class="col-uprice"></td><td class="col-total"></td>
+      <td class="col-qty"></td>
+      <td class="col-desc"></td>
+      <td class="col-uprice"></td>
+      <td class="col-total"></td>
     </tr>
   `,
     )
@@ -151,24 +162,25 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         .company-name { font-size: 19px; font-weight: bold; margin-bottom: 4px; }
         .red-accent-bar { border-left: 5px solid #ed1c24; padding-left: 12px; }
 
-        .meta-info-table { width: 260px; }
-        .meta-item { display: flex; margin-bottom: 4px; }
-        .meta-label { width: 100px; font-weight: bold; }
-        .meta-val { flex: 1; }
+        .meta-info-table { width: auto; align-self: flex-start; }
+        .meta-item { display: flex; justify-content: flex-end; margin-bottom: 5px; font-size: 15px; }
+        .meta-label { font-weight: bold; width: 110px; text-align: left; }
+        .meta-val { width: 150px; text-align: left; font-weight: 500; }
 
         .customer-section { margin-bottom: 20px; font-size: 15.5px; line-height: 1.4; font-weight: 600; padding-left: 2px; }
 
         .table-container { border: 1.5px solid #000; border-bottom: none; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; border-bottom: 1.5px solid #000; }
-        th { background-color: #ed1c24 !important; color: #fff !important; text-align: center; padding: 8px 5px; font-size: 14px; border: 1px solid #000; }
-        td { padding: 4px 10px; font-size: 13.5px; border-left: 1px solid #000; border-right: 1px solid #000; vertical-align: middle; height: 26px; }
-        tr.zebra { background-color: #f5f5f5 !important; }
+        th { background-color: #ed1c24 !important; color: #fff !important; text-align: center; padding: 10px 5px; font-size: 15px; border: 1px solid #000; }
+        td { padding: 10px 10px; font-size: 14px; border-left: 1.5px solid #000; border-right: 1.5px solid #000; vertical-align: middle; min-height: 42px; }
+        tr.zebra { background-color: #f9f9f9 !important; }
 
-        .col-qty { width: 45px; }
-        .col-item { width: 65px; }
+        .col-qty { width: 50px; }
         .col-desc { text-align: left; }
-        .col-uprice { width: 120px; text-align: right; }
-        .col-total { width: 130px; text-align: right; }
+        .main-desc { font-weight: 700; font-size: 15px; }
+        .item-meta { font-size: 12px; color: #333; margin-top: 3px; font-weight: 600; }
+        .col-uprice { width: 140px; text-align: right; }
+        .col-total { width: 150px; text-align: right; }
 
         .totals-container { margin-top: 10px; width: 330px; align-self: flex-end; }
         .total-line { display: flex; justify-content: flex-end; padding: 2px 0; font-weight: bold; font-size: 16px; }
@@ -215,11 +227,10 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           <table>
             <thead>
               <tr>
-                <th style="width: 45px;">Qty</th>
-                <th style="width: 65px;">Item</th>
-                <th>Description</th>
-                <th style="width: 120px;">Unit Price</th>
-                <th style="width: 130px;">TOTAL</th>
+                <th class="col-qty">Qty</th>
+                <th>Description / Serial & Warranty</th>
+                <th class="col-uprice">Unit Price</th>
+                <th class="col-total">TOTAL</th>
               </tr>
             </thead>
             <tbody>

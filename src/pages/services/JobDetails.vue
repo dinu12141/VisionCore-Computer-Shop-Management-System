@@ -63,6 +63,15 @@
             color="blue"
           />
           <q-btn flat icon="delete" label="Delete" @click="confirmDelete" color="negative" />
+          <q-btn
+            v-if="job.payment_status !== 'paid'"
+            unelevated
+            color="primary"
+            icon="receipt_long"
+            label="Pay → Invoice"
+            class="q-ml-sm"
+            @click="goToBillingWithJobDetails"
+          />
         </div>
       </div>
 
@@ -193,103 +202,6 @@
                 <q-card flat bordered class="q-pa-md" :dark="$q.dark.isActive">
                   {{ job.inspection_notes }}
                 </q-card>
-              </div>
-
-              <!-- Costs -->
-              <div class="col-12">
-                <div class="text-subtitle2 text-weight-bold q-mb-sm">Cost Summary</div>
-                <div class="row q-col-gutter-md">
-                  <!-- Estimated -->
-                  <div class="col-4">
-                    <q-card
-                      flat
-                      bordered
-                      class="cost-card q-pa-md text-center"
-                      :dark="$q.dark.isActive"
-                    >
-                      <div class="text-caption text-grey q-mb-xs">Estimated</div>
-                      <div class="text-h6 text-weight-bold">
-                        LKR {{ Number(job.total_estimated_cost || 0).toLocaleString() }}
-                      </div>
-                    </q-card>
-                  </div>
-
-                  <!-- Final -->
-                  <div class="col-4">
-                    <q-card
-                      flat
-                      bordered
-                      class="cost-card q-pa-md text-center"
-                      :dark="$q.dark.isActive"
-                    >
-                      <div class="text-caption text-grey q-mb-xs">Final</div>
-                      <div class="text-h6 text-weight-bold text-primary">
-                        LKR {{ Number(job.total_final_cost || 0).toLocaleString() }}
-                      </div>
-                    </q-card>
-                  </div>
-
-                  <!-- Payment -->
-                  <div class="col-4">
-                    <q-card
-                      flat
-                      bordered
-                      class="cost-card q-pa-md text-center"
-                      :dark="$q.dark.isActive"
-                    >
-                      <div class="text-caption text-grey q-mb-sm">Payment</div>
-
-                      <!-- Status badge + dropdown to change status -->
-                      <div class="flex flex-center q-mb-sm">
-                        <q-btn-dropdown flat dense no-caps :dark="$q.dark.isActive">
-                          <template v-slot:label>
-                            <q-badge
-                              :color="
-                                job.payment_status === 'paid'
-                                  ? 'positive'
-                                  : job.payment_status === 'partial'
-                                    ? 'warning'
-                                    : 'negative'
-                              "
-                              :label="job.payment_status || 'unpaid'"
-                              class="text-capitalize cursor-pointer"
-                              style="font-size: 13px; padding: 4px 10px"
-                            />
-                          </template>
-                          <q-list dense :dark="$q.dark.isActive">
-                            <q-item clickable v-close-popup @click="updatePayment('unpaid')">
-                              <q-item-section
-                                ><q-badge color="negative" label="Unpaid"
-                              /></q-item-section>
-                            </q-item>
-                            <q-item clickable v-close-popup @click="updatePayment('partial')">
-                              <q-item-section
-                                ><q-badge color="warning" label="Partial"
-                              /></q-item-section>
-                            </q-item>
-                            <q-item clickable v-close-popup @click="updatePayment('paid')">
-                              <q-item-section
-                                ><q-badge color="positive" label="Paid"
-                              /></q-item-section>
-                            </q-item>
-                          </q-list>
-                        </q-btn-dropdown>
-                      </div>
-
-                      <!-- Pay Now button — only shown when unpaid or partial -->
-                      <q-btn
-                        v-if="job.payment_status !== 'paid'"
-                        unelevated
-                        color="primary"
-                        icon="receipt_long"
-                        label="Pay → Invoice"
-                        size="sm"
-                        class="full-width"
-                        @click="goToBillingWithJobDetails"
-                      />
-                    </q-card>
-                  </div>
-                </div>
               </div>
             </div>
           </q-tab-panel>
@@ -428,30 +340,6 @@
                     dense
                     :dark="$q.dark.isActive"
                   />
-                  <div class="row q-col-gutter-md">
-                    <div class="col-6">
-                      <q-input
-                        v-model.number="diagForm.estimated_cost"
-                        label="Est. Cost"
-                        type="number"
-                        outlined
-                        dense
-                        :dark="$q.dark.isActive"
-                        prefix="LKR"
-                      />
-                    </div>
-                    <div class="col-6">
-                      <q-input
-                        v-model.number="diagForm.final_cost"
-                        label="Final Cost"
-                        type="number"
-                        outlined
-                        dense
-                        :dark="$q.dark.isActive"
-                        prefix="LKR"
-                      />
-                    </div>
-                  </div>
                 </q-card-section>
                 <q-card-actions align="right" class="q-pa-md">
                   <q-btn flat label="Cancel" v-close-popup />
@@ -544,12 +432,7 @@
                           <q-item v-bind="scope.itemProps">
                             <q-item-section>
                               <q-item-label>{{ scope.opt.name }}</q-item-label>
-                              <q-item-label caption
-                                >{{ scope.opt.code }} · LKR
-                                {{
-                                  Number(scope.opt.selling_price || 0).toLocaleString()
-                                }}</q-item-label
-                              >
+                              <q-item-label caption>{{ scope.opt.code }}</q-item-label>
                             </q-item-section>
                           </q-item>
                         </template>
@@ -606,29 +489,6 @@
                         outlined
                         dense
                         :dark="$q.dark.isActive"
-                      />
-                    </div>
-                    <div class="col-12 col-sm-5">
-                      <q-input
-                        v-model.number="partForm.unit_price"
-                        label="Unit Price"
-                        type="number"
-                        outlined
-                        dense
-                        :dark="$q.dark.isActive"
-                        prefix="LKR"
-                      />
-                    </div>
-                    <div class="col-12 col-sm-4">
-                      <q-input
-                        :model-value="partForm.qty * partForm.unit_price"
-                        label="Total"
-                        type="number"
-                        outlined
-                        dense
-                        :dark="$q.dark.isActive"
-                        prefix="LKR"
-                        readonly
                       />
                     </div>
                     <div class="col-12">
@@ -851,12 +711,6 @@
             />
             <q-toggle v-model="reportForm.includeParts" label="Parts Used" dense color="primary" />
             <q-toggle
-              v-model="reportForm.includeCosts"
-              label="Cost Summary"
-              dense
-              color="primary"
-            />
-            <q-toggle
               v-model="reportForm.includeWarranty"
               label="Warranty Statement"
               dense
@@ -1017,8 +871,6 @@ const diagForm = reactive({
   error_description: '',
   severity: 'medium',
   recommended_fix: '',
-  estimated_cost: 0,
-  final_cost: 0,
 })
 
 const categoryOptions = [
@@ -1042,20 +894,6 @@ const diagColumns = [
   { name: 'error_title', label: 'Issue', field: 'error_title', align: 'left' },
   { name: 'severity', label: 'Severity', field: 'severity', align: 'center' },
   { name: 'recommended_fix', label: 'Fix', field: 'recommended_fix', align: 'left' },
-  {
-    name: 'estimated_cost',
-    label: 'Est. Cost',
-    field: 'estimated_cost',
-    align: 'right',
-    format: (v) => 'LKR ' + Number(v || 0).toLocaleString(),
-  },
-  {
-    name: 'final_cost',
-    label: 'Final Cost',
-    field: 'final_cost',
-    align: 'right',
-    format: (v) => 'LKR ' + Number(v || 0).toLocaleString(),
-  },
   { name: 'is_fixed', label: 'Fixed', field: 'is_fixed', align: 'center' },
   { name: 'actions', label: '', field: 'actions', align: 'center' },
 ]
@@ -1072,20 +910,6 @@ const partForm = reactive({
 const partColumns = [
   { name: 'item_name', label: 'Item', field: 'item_name', align: 'left' },
   { name: 'qty', label: 'Qty', field: 'qty', align: 'center' },
-  {
-    name: 'unit_price',
-    label: 'Unit Price',
-    field: 'unit_price',
-    align: 'right',
-    format: (v) => 'LKR ' + Number(v || 0).toLocaleString(),
-  },
-  {
-    name: 'total',
-    label: 'Total',
-    field: 'total',
-    align: 'right',
-    format: (v) => 'LKR ' + Number(v || 0).toLocaleString(),
-  },
   { name: 'notes', label: 'SN / Notes', field: 'notes', align: 'left' },
   { name: 'actions', label: '', field: 'actions', align: 'center' },
 ]
@@ -1132,60 +956,57 @@ async function changeStatus(newStatus) {
   })
 }
 
-async function updatePayment(status) {
-  try {
-    await store.updatePaymentStatus(job.value.id, status)
-    $q.notify({ type: 'positive', message: `Payment status updated to ${status}` })
-  } catch (err) {
-    $q.notify({ type: 'negative', message: 'Failed to update payment status: ' + err.message })
-  }
-}
-
-// Navigate to billing and pre-fill all service job details
+// Navigate to billing and pre-fill items (Repairs + Parts)
 function goToBillingWithJobDetails() {
   const j = job.value
   if (!j) return
 
-  // Use final cost if available, otherwise fall back to estimated cost
+  // Final cost (Labor/Service)
   const servicePrice =
     Number(j.total_final_cost || 0) > 0
       ? Number(j.total_final_cost)
       : Number(j.total_estimated_cost || 0)
 
-  // Parts used as separate line items
-  // Issue Reported and Inspection notes both flow to billing notes
-  let billNotes = `Service Job: ${j.job_no}`
-  if (j.issue_reported_by_customer) billNotes += `\nReported Issue: ${j.issue_reported_by_customer}`
-  if (j.inspection_notes) billNotes += `\nInspection Notes: ${j.inspection_notes}`
+  // Build items: 1. Reported Issue (Service Line), 2. Parts Used
+  const lineItems = []
 
-  // Parts used as separate line items
-  const partLines = (store.partsUsed || []).map((p) => {
-    // Include serial number/notes in the line item name if available
-    const itemName = p.notes ? `${p.item_name} (SN: ${p.notes})` : p.item_name
-    return {
-      name: itemName,
-      qty: Number(p.qty || 1),
-      price: Number(p.unit_price || 0),
-      total: Number(p.total || p.qty * p.unit_price || 0),
-    }
+  // Add Reported Issue as the main service line
+  lineItems.push({
+    description: j.issue_reported_by_customer
+      ? `Repair: ${j.issue_reported_by_customer} (${j.brand || ''} ${j.model || ''})`
+      : `Service Charge: ${j.job_no} (${j.brand || ''} ${j.model || ''})`,
+    qty: 1,
+    unit_price: servicePrice,
+    line_total: servicePrice,
+    item_code: 'SERVICE',
+    is_service: true,
   })
+
+  // Add Parts used as separate lines
+  const partLines = (store.partsUsed || []).map((p) => ({
+    description: p.item_name,
+    qty: Number(p.qty || 1),
+    unit_price: Number(p.unit_price || 0),
+    discount: 0,
+    line_total: Number(p.total || p.qty * p.unit_price || 0),
+    warranty: '',
+    serial_number: p.notes || '',
+    item_code: '',
+  }))
+
+  lineItems.push(...partLines)
 
   const prefill = {
     source: 'service_job',
     job_id: j.id,
     job_no: j.job_no,
-    notes: billNotes,
+    is_service_invoice: true,
     // Customer details
     customer_id: j.customer_id || null,
     customer_name: j.customer?.name || null,
     customer_phone: j.customer?.phone || null,
-    // Parts used
-    items: partLines,
-    // Service charge line — description = Issue Reported text, price = final/estimated cost
-    service_total: servicePrice,
-    service_label: j.issue_reported_by_customer
-      ? `${j.job_no} — ${j.issue_reported_by_customer}`
-      : `${j.job_no} — Service Charge (${j.brand || ''} ${j.model || ''})`.trim(),
+    // Combined items
+    items: lineItems,
   }
 
   sessionStorage.setItem('billing_prefill', JSON.stringify(prefill))
@@ -1206,8 +1027,6 @@ async function addDiagItem() {
       error_description: '',
       severity: 'medium',
       recommended_fix: '',
-      estimated_cost: 0,
-      final_cost: 0,
     })
     $q.notify({ type: 'positive', message: 'Diagnosis item added' })
   } catch (err) {
@@ -1408,11 +1227,8 @@ function printReport(report, autoPrint = true) {
       .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
       .info-row { display: flex; }
       .info-label { width: 140px; font-weight: 600; color: #555; }
-      .costs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: center; }
-      .cost-box { border: 1px solid #ddd; border-radius: 8px; padding: 12px; }
-      .cost-box .value { font-size: 18px; font-weight: 700; color: #4f46e5; }
       .warranty { background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; padding: 12px; margin-top: 20px; }
-      .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+      .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 100px; }
       .sig-box { border-top: 1px solid #333; padding-top: 8px; text-align: center; font-size: 12px; }
       .footer { text-align: center; margin-top: 40px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
       @media print {
@@ -1496,13 +1312,12 @@ function printReport(report, autoPrint = true) {
       <div class="section">
         <div class="section-title">Diagnosed Issues</div>
         <table>
-          <tr><th>Category</th><th>Issue</th><th>Severity</th><th>Fix</th><th>Est. Cost</th><th>Final Cost</th><th>Fixed</th></tr>
+          <tr><th>Category</th><th>Issue</th><th>Severity</th><th>Fix</th><th>Fixed</th></tr>
           ${diag
             .map(
               (d) => `<tr>
             <td>${d.category || '-'}</td><td>${d.error_title}</td><td>${d.severity}</td>
-            <td>${d.recommended_fix || '-'}</td><td>LKR ${Number(d.estimated_cost || 0).toLocaleString()}</td>
-            <td>LKR ${Number(d.final_cost || 0).toLocaleString()}</td><td>${d.is_fixed ? '✅' : '❌'}</td>
+            <td>${d.recommended_fix || '-'}</td><td>${d.is_fixed ? '✅' : '❌'}</td>
           </tr>`,
             )
             .join('')}
@@ -1516,31 +1331,16 @@ function printReport(report, autoPrint = true) {
       <div class="section">
         <div class="section-title">Parts Used</div>
         <table>
-          <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th><th>SN / Notes</th></tr>
+          <tr><th>Item</th><th>Qty</th><th>SN / Notes</th></tr>
           ${parts
             .map(
               (p) => `<tr>
             <td>${p.item_name || '-'}</td><td>${p.qty}</td>
-            <td>LKR ${Number(p.unit_price || 0).toLocaleString()}</td>
-            <td>LKR ${Number(p.total || 0).toLocaleString()}</td>
             <td>${p.notes || '-'}</td>
           </tr>`,
             )
             .join('')}
         </table>
-      </div>`
-  }
-
-  // Costs
-  if (sections.costs !== false) {
-    html += `
-      <div class="section">
-        <div class="section-title">Cost Summary</div>
-        <div class="costs-grid">
-          <div class="cost-box"><div style="font-size:11px;color:#888">Estimated</div><div class="value">LKR ${Number(j.total_estimated_cost || 0).toLocaleString()}</div></div>
-          <div class="cost-box"><div style="font-size:11px;color:#888">Final</div><div class="value">LKR ${Number(j.total_final_cost || 0).toLocaleString()}</div></div>
-          <div class="cost-box"><div style="font-size:11px;color:#888">Payment Status</div><div class="value" style="text-transform:capitalize">${j.payment_status || 'unpaid'}</div></div>
-        </div>
       </div>`
   }
 
@@ -1560,6 +1360,7 @@ function printReport(report, autoPrint = true) {
 
   // Signatures
   html += `
+    <div style="flex-grow: 1; min-height: 50px;"></div>
     <div class="signatures">
       <div><div class="sig-box">Technician Signature</div></div>
       <div><div class="sig-box">Customer Signature</div></div>
