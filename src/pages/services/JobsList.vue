@@ -230,7 +230,7 @@
               icon="visibility"
               color="primary"
               size="sm"
-              @click="$router.push(`/services/jobs/${props.row.id}`)"
+              @click="viewReport(props.row.id)"
             >
               <q-tooltip>View Details</q-tooltip>
             </q-btn>
@@ -245,6 +245,34 @@
         </template>
       </q-table>
     </q-card>
+
+    <!-- PDF Review Dialog -->
+    <q-dialog
+      v-model="reportDialog"
+      maximized
+      transition-show="slide-up"
+      transition-hide="slide-down"
+    >
+      <q-card class="column no-wrap overflow-hidden">
+        <q-banner dense class="bg-primary text-white row items-center no-wrap">
+          <div class="text-subtitle1">Service Report Preview</div>
+          <template v-slot:action>
+            <q-btn
+              flat
+              color="white"
+              label="Download PDF"
+              icon="download"
+              @click="downloadCurrentReport"
+              class="q-mr-sm"
+            />
+            <q-btn flat round dense icon="close" v-close-popup />
+          </template>
+        </q-banner>
+        <q-card-section class="col q-pa-none">
+          <iframe :src="reportUrl" style="width: 100%; height: 100%; border: none" />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -261,6 +289,10 @@ const $q = useQuasar()
 const $router = useRouter()
 const store = useServiceStore()
 const authStore = useAuthStore()
+
+const reportDialog = ref(false)
+const reportUrl = ref('')
+const currentJobId = ref(null)
 
 const deviceOptions = ref([])
 
@@ -285,6 +317,26 @@ async function downloadPdf(jobId) {
     $q.notify({ type: 'negative', message: err.message })
   } finally {
     $q.loading.hide()
+  }
+}
+
+async function viewReport(jobId) {
+  $q.loading.show({ message: 'Generating Report Preview...' })
+  try {
+    currentJobId.value = jobId
+    const url = await downloadServiceJobPDF(jobId, 'bloburl')
+    reportUrl.value = url
+    reportDialog.value = true
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message })
+  } finally {
+    $q.loading.hide()
+  }
+}
+
+function downloadCurrentReport() {
+  if (currentJobId.value) {
+    downloadServiceJobPDF(currentJobId.value, 'download')
   }
 }
 

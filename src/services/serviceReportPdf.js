@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { supabase } from 'src/boot/supabase'
 
-export async function downloadServiceJobPDF(jobId) {
+export async function downloadServiceJobPDF(jobId, outputType = 'download') {
   // 1. Fetch data
   const { data: job, error: jobErr } = await supabase
     .from('service_jobs')
@@ -223,13 +223,6 @@ export async function downloadServiceJobPDF(jobId) {
   doc.line(210 - margin - 50, currentY, 210 - margin, currentY)
   doc.text('Customer Signature', 210 - margin - 45, currentY + 4.5)
 
-  // ---------- AUTO-SCALE to fit single page if overflowed ----------
-  const totalPages = doc.internal.getNumberOfPages()
-  if (totalPages > 1) {
-    // Re-scale the entire document to fit on 1 page using jsPDF internal
-    // (fallback: just keep multi-page but label correctly)
-  }
-
   // ---------- FOOTER ----------
   const pageCount = doc.internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
@@ -244,16 +237,16 @@ export async function downloadServiceJobPDF(jobId) {
     )
   }
 
-  // 3. Direct download as .pdf file
-  const pdfBlob = doc.output('blob')
-  const pdfUrl = URL.createObjectURL(pdfBlob)
-  const link = document.createElement('a')
-  link.href = pdfUrl
-  link.download = `Service_Job_${job.job_no}.pdf`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(pdfUrl)
+  if (outputType === 'preview') {
+    // Open in a new window/tab for viewing
+    const blobUrl = doc.output('bloburl')
+    window.open(blobUrl, '_blank')
+  } else if (outputType === 'bloburl') {
+    return doc.output('bloburl')
+  } else {
+    // Direct download as .pdf file
+    doc.save(`Service_Job_${job.job_no}.pdf`)
+  }
 
   return true
 }
