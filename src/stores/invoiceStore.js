@@ -37,6 +37,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
         notes: invoiceData.notes || null,
         created_by: authStore.user?.id,
         collection_date: invoiceData.collection_date || null,
+        invoice_date: invoiceData.invoice_date || null,
         // VAT invoice fields — only include when it's a VAT invoice
         ...(invoiceData.is_vat_invoice
           ? {
@@ -285,6 +286,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
         customer_snapshot: invoiceData.customer_snapshot || {},
         notes: invoiceData.notes || null,
         collection_date: invoiceData.collection_date || null,
+        invoice_date: invoiceData.invoice_date || null,
         // VAT fields
         ...(invoiceData.is_vat_invoice !== undefined
           ? {

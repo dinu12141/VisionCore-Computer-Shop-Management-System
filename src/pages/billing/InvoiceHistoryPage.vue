@@ -109,7 +109,9 @@
               >TAX</q-badge
             >
           </div>
-          <div class="text-caption text-grey-7">{{ formatDate(props.row.created_at) }}</div>
+          <div class="text-caption text-grey-7">
+            {{ formatDate(props.row.invoice_date || props.row.created_at) }}
+          </div>
         </q-td>
       </template>
 
@@ -127,15 +129,13 @@
       <template v-slot:body-cell-total="props">
         <q-td :props="props" align="right">
           <div class="text-weight-bold text-subtitle1">{{ formatCurrency(props.value) }}</div>
+          <div v-if="props.row.status === 'paid'" class="text-caption text-positive">FULL PAID</div>
           <div
-            v-if="props.row.balance > 0"
+            v-else-if="props.row.balance > 0"
             class="text-caption text-negative text-weight-bold cursor-pointer"
             @click="goToCollections(props.row)"
           >
             Due: {{ formatCurrency(props.row.balance) }}
-          </div>
-          <div v-else-if="props.row.payment_status === 'PAID'" class="text-caption text-positive">
-            FULL PAID
           </div>
         </q-td>
       </template>
@@ -143,12 +143,12 @@
       <template v-slot:body-cell-payment_type="props">
         <q-td :props="props" align="center">
           <q-chip
-            :color="getStatusColor(props.row.payment_status)"
+            :color="getComputedStatusColor(props.row)"
             text-color="white"
             size="sm"
             class="text-weight-bold text-uppercase"
           >
-            {{ props.row.payment_status || props.value }}
+            {{ getComputedStatusText(props.row) }}
           </q-chip>
         </q-td>
       </template>
@@ -309,14 +309,26 @@ function resetFilters() {
   fetchInvoices()
 }
 
-function getStatusColor(status) {
-  const colors = {
-    PAID: 'green',
-    PARTIAL: 'orange',
-    UNPAID: 'red',
-    CANCELLED: 'grey-7',
-  }
-  return colors[status] || 'grey'
+function getComputedStatusText(row) {
+  if (row.status === 'cancelled') return 'CANCELLED'
+  if (row.status === 'draft') return 'DRAFT'
+  const balance = Number(row.balance || 0)
+  const paid = Number(row.paid_amount || 0)
+  const total = Number(row.total || 0)
+
+  if (balance <= 0 && paid >= total && total > 0) return 'PAID'
+  if (balance <= 0 && total === 0) return 'PAID'
+  if (paid > 0 && balance > 0) return 'ISSUED'
+  return 'UNPAID'
+}
+
+function getComputedStatusColor(row) {
+  const st = getComputedStatusText(row)
+  if (st === 'PAID') return 'green'
+  if (st === 'UNPAID') return 'red'
+  if (st === 'ISSUED') return 'deep-orange' // To distinguish from unpaid
+  if (st === 'CANCELLED') return 'grey-7'
+  return 'grey'
 }
 
 function formatDate(date) {

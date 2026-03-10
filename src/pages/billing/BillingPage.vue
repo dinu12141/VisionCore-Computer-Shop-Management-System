@@ -40,8 +40,16 @@
           <q-card-section>
             <div class="row justify-between items-center q-mb-md">
               <div class="text-h6 text-weight-bold">Invoice Items</div>
-              <div class="text-caption text-grey-6 text-uppercase text-weight-bold">
-                Date: {{ currentDate }}
+              <div class="row items-center q-gutter-x-sm">
+                <q-input
+                  v-model="form.invoice_date"
+                  type="date"
+                  label="Invoice Date"
+                  outlined
+                  dense
+                  stack-label
+                  style="width: 150px"
+                />
               </div>
             </div>
 
@@ -150,7 +158,7 @@
               <div class="col-6">
                 <q-select
                   v-model="form.status"
-                  :options="['issued', 'draft']"
+                  :options="['issued', 'draft', 'paid', 'unpaid']"
                   label="Status"
                   outlined
                   dense
@@ -374,6 +382,7 @@ const form = reactive({
   isVatInvoice: false,
   is_service_invoice: false,
   service_job_id: null,
+  invoice_date: currentDate,
 })
 
 const VAT_RATE = 0.18
@@ -416,6 +425,7 @@ onMounted(async () => {
       form.isVatInvoice = !!inv.is_vat_invoice
       form.isPartPayment = Number(inv.balance || 0) > 0
       form.collection_date = inv.collection_date || ''
+      form.invoice_date = inv.invoice_date || currentDate
 
       // Map items
       items.value = (inv.items || []).map((i) => ({
@@ -573,9 +583,20 @@ async function submitInvoice() {
 
     const finalTotal = form.isVatInvoice ? totals.value.grandTotal : totals.value.total
 
+    let finalStatus = form.status
+    if (form.status !== 'draft') {
+      if (totals.value.balance <= 0) {
+        finalStatus = 'paid'
+      } else if (form.paidAmount > 0) {
+        finalStatus = 'issued' // Partial payment
+      } else {
+        finalStatus = 'unpaid' // Zero payment
+      }
+    }
+
     const payload = {
       customer_id: selectedCustomerId.value || null,
-      status: form.status,
+      status: finalStatus,
       payment_type: form.payment_type,
       subtotal: totals.value.subtotal,
       discount: form.globalDiscount,
@@ -590,6 +611,7 @@ async function submitInvoice() {
       collection_date: form.isPartPayment || totals.value.balance > 0 ? form.collection_date : null,
       is_service_invoice: form.is_service_invoice,
       service_job_id: form.service_job_id,
+      invoice_date: form.invoice_date || currentDate,
     }
 
     const invoice = isEditMode.value

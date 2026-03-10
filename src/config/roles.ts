@@ -168,6 +168,12 @@ export const NAV_ITEMS: NavItem[] = [
         roles: ['admin', 'manager', 'user'],
       },
       {
+        label: 'Completed Jobs',
+        icon: 'check_circle',
+        to: '/services/completed',
+        roles: ['admin', 'manager', 'user'],
+      },
+      {
         label: 'New Job',
         icon: 'add_circle_outline',
         to: '/services/new',

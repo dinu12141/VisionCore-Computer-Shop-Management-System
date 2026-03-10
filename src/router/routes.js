@@ -103,6 +103,10 @@ const routes = [
         component: () => import('pages/services/JobsList.vue'),
       },
       {
+        path: 'services/completed',
+        component: () => import('pages/services/CompletedJobs.vue'),
+      },
+      {
         path: 'services/new',
         component: () => import('pages/services/CreateJob.vue'),
       },

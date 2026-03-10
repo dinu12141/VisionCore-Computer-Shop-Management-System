@@ -97,6 +97,8 @@ export const useServiceStore = defineStore('services', () => {
         .order('created_at', { ascending: false })
 
       if (filters.status) query = query.eq('status', filters.status)
+      if (filters.payment_status) query = query.eq('payment_status', filters.payment_status)
+      if (filters.exclude_paid) query = query.neq('payment_status', 'paid')
       if (filters.priority) query = query.eq('priority', filters.priority)
       if (filters.device_type) query = query.eq('device_type', filters.device_type)
       if (filters.technician_id) query = query.eq('assigned_technician_id', filters.technician_id)

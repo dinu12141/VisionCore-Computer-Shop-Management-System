@@ -3,16 +3,18 @@
     <!-- Header -->
     <div class="row items-center q-mb-lg">
       <div class="col">
-        <h1 class="text-h4 text-weight-bolder q-ma-none text-gradient">Service Jobs</h1>
-        <div class="text-subtitle2 text-grey-6">Manage all device repair & service tickets</div>
+        <h1 class="text-h4 text-weight-bolder q-ma-none text-gradient">Completed Jobs</h1>
+        <div class="text-subtitle2 text-grey-6">
+          View all finished repairs & fully paid services
+        </div>
       </div>
       <div class="col-auto q-gutter-sm">
         <q-btn
           flat
           color="secondary"
-          icon="check_circle"
-          label="Completed Jobs"
-          @click="$router.push('/services/completed')"
+          icon="list"
+          label="Active Jobs"
+          @click="$router.push('/services/jobs')"
         />
         <q-btn color="primary" icon="add" label="New Job" @click="$router.push('/services/new')" />
       </div>
@@ -191,18 +193,6 @@
               flat
               round
               dense
-              icon="task_alt"
-              color="positive"
-              size="sm"
-              class="q-mr-xs"
-              @click="markAsCompleted(props.row)"
-            >
-              <q-tooltip>Mark as Completed</q-tooltip>
-            </q-btn>
-            <q-btn
-              flat
-              round
-              dense
               icon="edit"
               color="blue"
               size="sm"
@@ -251,14 +241,12 @@
 <script setup>
 import { reactive, onMounted, watch, ref } from 'vue'
 import { useQuasar, debounce } from 'quasar'
-import { useRouter } from 'vue-router'
 import { useServiceStore } from 'src/stores/serviceStore'
 import { useAuthStore } from 'src/stores/auth'
 import { supabase } from 'src/boot/supabase'
 import { downloadServiceJobPDF } from 'src/services/serviceReportPdf'
 
 const $q = useQuasar()
-const $router = useRouter()
 const store = useServiceStore()
 const authStore = useAuthStore()
 
@@ -286,45 +274,6 @@ async function downloadPdf(jobId) {
   } finally {
     $q.loading.hide()
   }
-}
-
-function markAsCompleted(job) {
-  $q.dialog({
-    title: 'Mark as Completed',
-    message: `Mark job <b>${job.job_no}</b> as Delivered and Paid? This will move it to Completed Jobs.`,
-    html: true,
-    persistent: true,
-    ok: {
-      label: 'Complete Job',
-      color: 'positive',
-      icon: 'task_alt',
-    },
-    cancel: {
-      flat: true,
-      label: 'Cancel',
-    },
-  }).onOk(async () => {
-    $q.loading.show({ message: 'Completing job...' })
-    try {
-      // Mark status as delivered
-      await store.updateStatus(job.id, 'delivered', 'Marked as completed from job list')
-      // Mark payment as paid
-      await store.updatePaymentStatus(job.id, 'paid')
-      // Remove from local list immediately
-      store.jobs = store.jobs.filter((j) => j.id !== job.id)
-      $q.notify({
-        type: 'positive',
-        message: `Job ${job.job_no} marked as completed!`,
-        icon: 'task_alt',
-      })
-      // Navigate to completed jobs
-      $router.push('/services/completed')
-    } catch (err) {
-      $q.notify({ type: 'negative', message: 'Failed to complete job: ' + err.message })
-    } finally {
-      $q.loading.hide()
-    }
-  })
 }
 
 function confirmDelete(job) {
@@ -355,7 +304,7 @@ function confirmDelete(job) {
 const filters = reactive({
   search: '',
   status: null,
-  exclude_paid: true, // Show only active/unpaid jobs in the main list
+  payment_status: 'paid', // Default to paid for completed list
   priority: null,
   device_type: null,
   overdue: false,

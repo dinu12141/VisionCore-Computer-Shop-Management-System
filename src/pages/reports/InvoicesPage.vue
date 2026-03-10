@@ -185,7 +185,9 @@
               >TAX</q-badge
             >
           </div>
-          <div class="text-caption text-grey-6">{{ formatDate(props.row.created_at) }}</div>
+          <div class="text-caption text-grey-6">
+            {{ formatDate(props.row.invoice_date || props.row.created_at) }}
+          </div>
         </q-td>
       </template>
 

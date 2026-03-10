@@ -10,6 +10,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
   const logoUrl = window.location.origin + '/logo.png'
 
   const formatDate = (d) => {
+    if (!d) return ''
     const months = [
       'January',
       'February',
@@ -24,6 +25,12 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
       'November',
       'December',
     ]
+    if (typeof d === 'string' && d.includes('-') && !d.includes('T')) {
+      const parts = d.split('-')
+      if (parts.length === 3) {
+        return `${parseInt(parts[2], 10)} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`
+      }
+    }
     const dateObj = new Date(d)
     return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`
   }
@@ -60,9 +67,8 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     })
     .join('')
 
-  // Reduced empty rows to 12 to guarantee space for footer and totals on a single page
-  // Adjusted empty rows count based on content length
-  const emptyRowsCount = Math.max(0, 15 - items.length)
+  // Reduced empty rows to ensure better natural flow for multi-page invoices
+  const emptyRowsCount = Math.max(0, 10 - items.length)
   const emptyRowsHtml = Array(emptyRowsCount)
     .fill(0)
     .map(
@@ -83,7 +89,6 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
   let totalsHtml = ''
   if (isVat) {
-    // VAT Invoice: show 3 new lines BEFORE the existing PAID AMOUNT / BALANCE
     const totalBeforeVat = Number(invoice.total_before_vat || 0)
     const vatAmount = Number(invoice.vat_amount || invoice.tax || 0)
     const totalWithVat = Number(invoice.total || 0)
@@ -102,7 +107,6 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
             <span class="total-val">${formatCurrency(totalWithVat)}</span>
           </div>`
   } else {
-    // Normal Invoice: original TOTAL line exactly as before
     totalsHtml = `
           <div class="total-line">
             <span class="total-label">TOTAL</span>
@@ -119,7 +123,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
       <style>
         @page {
           size: A4;
-          margin: 0 !important;
+          margin: 10mm 0;
         }
 
         * { box-sizing: border-box; }
@@ -136,7 +140,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
         .page {
           width: 210mm;
-          height: 297mm;
+          min-height: 277mm; /* Changed from height: 297mm to allow expansion */
           margin: 0 auto;
           background: #fff;
           padding: 12mm 15mm;
@@ -169,26 +173,81 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
         .customer-section { margin-bottom: 20px; font-size: 15.5px; line-height: 1.4; font-weight: 600; padding-left: 2px; }
 
-        .table-container { border: 1.5px solid #000; border-bottom: none; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; border-bottom: 1.5px solid #000; }
-        th { background-color: #ed1c24 !important; color: #fff !important; text-align: center; padding: 10px 5px; font-size: 15px; border: 1px solid #000; }
-        td { padding: 10px 10px; font-size: 14px; border-left: 1.5px solid #000; border-right: 1.5px solid #000; vertical-align: middle; min-height: 42px; }
+        .table-container {
+          width: 100%;
+          margin-bottom: 5px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          border: 1.5px solid #000;
+          margin-bottom: 0px;
+        }
+
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+
+        th {
+          background-color: #ed1c24 !important;
+          color: #fff !important;
+          text-align: center;
+          padding: 10px 5px;
+          font-size: 15px;
+          border: 1px solid #000;
+        }
+
+        td {
+          padding: 10px 10px;
+          font-size: 14px;
+          border-left: 1.2px solid #000;
+          border-right: 1.2px solid #000;
+          vertical-align: middle;
+          min-height: 40px;
+        }
+
         tr.zebra { background-color: #f9f9f9 !important; }
 
         .col-qty { width: 50px; }
-        .col-desc { text-align: left; }
+        .col-desc { text-align: left; border-right: none !important; }
         .main-desc { font-weight: 700; font-size: 15px; }
         .item-meta { font-size: 12px; color: #333; margin-top: 3px; font-weight: 600; }
         .col-uprice { width: 140px; text-align: right; }
         .col-total { width: 150px; text-align: right; }
 
-        .totals-container { margin-top: 10px; width: 330px; align-self: flex-end; }
-        .total-line { display: flex; justify-content: flex-end; padding: 2px 0; font-weight: bold; font-size: 16px; }
-        .total-label { text-align: right; margin-right: 25px; flex: 1; }
-        .total-val { width: 130px; text-align: right; }
+        .totals-container {
+          margin-top: 0;
+          width: 330px;
+          align-self: flex-end;
+          page-break-inside: avoid;
+          border: 1.5px solid #000;
+          border-top: none;
+          padding: 10px 15px;
+          background-color: #fdfdfd;
+        }
 
-        .footer { margin-top: auto; padding-top: 20px; font-size: 14.5px; font-weight: bold; width: 100%; }
-        .thank-you { margin-top: 12px; }
+        .total-line {
+          display: flex;
+          justify-content: space-between;
+          padding: 3px 0;
+          font-weight: bold;
+          font-size: 15px;
+        }
+
+        .total-label { text-align: left; flex: 1; }
+        .total-val { width: 140px; text-align: right; }
+
+        .footer {
+          margin-top: 15px;
+          padding-top: 5px;
+          font-size: 14px;
+          font-weight: bold;
+          width: 100%;
+          page-break-inside: avoid;
+        }
+
+        .thank-you { margin-top: 8px; }
 
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -211,7 +270,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
             ${phones.map((p) => `<div>${p}</div>`).join('')}
           </div>
           <div class="meta-info-table">
-            <div class="meta-item"><span class="meta-label">Date:</span> <span class="meta-val">${formatDate(invoice.invoice_date || new Date())}</span></div>
+            <div class="meta-item"><span class="meta-label">Date:</span> <span class="meta-val">${formatDate(invoice.invoice_date || invoice.created_at || new Date())}</span></div>
             <div class="meta-item"><span class="meta-label">Invoice No.:</span> <span class="meta-val">${invoice.invoice_no || ''}</span></div>
           </div>
         </div>
