@@ -4,7 +4,7 @@
       title="Inventory Management"
       subtitle="Stock control, documents, and warehouse operations"
     >
-      <template #actions>
+      <template #actions v-if="authStore.isAdmin">
         <q-btn
           outline
           color="secondary"
@@ -108,9 +108,11 @@ import DocumentCreateTab from 'components/inventory/DocumentCreateTab.vue'
 import StockLevelsTab from 'components/inventory/StockLevelsTab.vue'
 import StockLedgerTab from 'components/inventory/StockLedgerTab.vue'
 import SuppliersTab from 'components/inventory/SuppliersTab.vue'
+import { useAuthStore } from 'src/stores/auth'
 import AddSerialStock from 'components/inventory/AddSerialStock.vue'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const tab = ref('dashboard')
 const showSerialDialog = ref(false)
 const editingDocument = ref(null)

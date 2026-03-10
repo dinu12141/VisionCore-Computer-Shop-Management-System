@@ -190,6 +190,7 @@
               <q-tooltip>Download Report</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               round
               dense
@@ -202,6 +203,7 @@
               <q-tooltip>Edit Job</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               round
               dense

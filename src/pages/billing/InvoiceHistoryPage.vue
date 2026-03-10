@@ -5,7 +5,7 @@
         <h1 class="text-h4 text-weight-bold q-my-none text-primary">Invoice History</h1>
         <p class="text-grey-7 q-mb-none">View and search past invoices</p>
       </div>
-      <div class="col-auto">
+      <div class="col-auto" v-if="authStore.isAdmin">
         <q-btn color="primary" icon="add" label="New Invoice" rounded unelevated to="/billing" />
       </div>
     </div>
@@ -159,6 +159,7 @@
             <q-tooltip>View Invoice</q-tooltip>
           </q-btn>
           <q-btn
+            v-if="authStore.isAdmin"
             flat
             round
             dense
@@ -183,6 +184,7 @@
             <q-tooltip>Download PDF</q-tooltip>
           </q-btn>
           <q-btn
+            v-if="authStore.isAdmin"
             flat
             round
             dense
@@ -193,7 +195,7 @@
             <q-tooltip>Delete Invoice</q-tooltip>
           </q-btn>
           <q-btn
-            v-if="props.row.balance > 0"
+            v-if="props.row.balance > 0 && authStore.isAdmin"
             flat
             round
             dense
@@ -236,6 +238,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
+import { useAuthStore } from 'src/stores/auth'
 import { debounce } from 'quasar'
 import { renderInvoiceHTML } from 'src/utils/renderInvoiceHTML'
 import { downloadInvoicePDF } from 'src/utils/downloadInvoicePDF'
@@ -244,6 +247,7 @@ import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
 const $q = useQuasar()
 const router = useRouter()
 const invoiceStore = useInvoiceStore()
+const authStore = useAuthStore()
 const invoices = ref([])
 const loading = ref(false)
 const downloadingId = ref(null)

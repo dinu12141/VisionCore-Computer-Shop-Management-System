@@ -14,7 +14,13 @@
           label="Completed Jobs"
           @click="$router.push('/services/completed')"
         />
-        <q-btn color="primary" icon="add" label="New Job" @click="$router.push('/services/new')" />
+        <q-btn
+          v-if="authStore.isAdmin"
+          color="primary"
+          icon="add"
+          label="New Job"
+          @click="$router.push('/services/new')"
+        />
       </div>
     </div>
 
@@ -188,6 +194,7 @@
               <q-tooltip>Download Report</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               round
               dense
@@ -200,6 +207,7 @@
               <q-tooltip>Mark as Completed</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               round
               dense
@@ -212,6 +220,7 @@
               <q-tooltip>Edit Job</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               round
               dense

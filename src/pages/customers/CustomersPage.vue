@@ -8,6 +8,7 @@
       </div>
       <q-space />
       <q-btn
+        v-if="authStore.isAdmin"
         unelevated
         color="primary"
         icon="add"
@@ -83,7 +84,15 @@
 
         <template v-slot:body-cell-actions="props">
           <q-td :props="props" align="right" class="q-gutter-xs">
-            <q-btn flat dense round icon="edit" color="blue-7" @click="openDialog(props.row)">
+            <q-btn
+              v-if="authStore.isAdmin"
+              flat
+              dense
+              round
+              icon="edit"
+              color="blue-7"
+              @click="openDialog(props.row)"
+            >
               <q-tooltip>Edit Profile</q-tooltip>
             </q-btn>
             <q-btn
@@ -97,6 +106,7 @@
               <q-tooltip>Create Invoice</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="authStore.isAdmin"
               flat
               dense
               round
@@ -135,12 +145,14 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCustomerStore } from 'src/stores/customerStore'
+import { useAuthStore } from 'src/stores/auth'
 import CustomerDialog from 'src/components/customers/CustomerDialog.vue'
 import { useQuasar } from 'quasar'
 
 const $q = useQuasar()
 const router = useRouter()
 const customerStore = useCustomerStore()
+const authStore = useAuthStore()
 
 const search = ref('')
 const categoryFilter = ref(null)

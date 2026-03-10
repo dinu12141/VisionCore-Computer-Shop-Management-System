@@ -326,18 +326,21 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useQuasar, date } from 'quasar'
 import { useCustomerStore } from 'src/stores/customerStore'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
 import InvoiceItemsTable from 'src/components/billing/InvoiceItemsTable.vue'
 import CustomerDialog from 'src/components/customers/CustomerDialog.vue'
 import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
+import { useAuthStore } from 'src/stores/auth'
 
 const $q = useQuasar()
 const route = useRoute()
+const router = useRouter()
 const customerStore = useCustomerStore()
 const invoiceStore = useInvoiceStore()
+const authStore = useAuthStore()
 
 const selectedCustomerId = ref(null)
 const customerOptions = ref([])
@@ -409,6 +412,10 @@ onMounted(async () => {
 
   // ── Edit Mode Detection ──────────────────────────────────────────
   if (route.query.editId) {
+    if (!authStore.isAdmin) {
+      $q.notify({ type: 'negative', message: 'Access Denied: Only Admins can edit invoices' })
+      return await router.push('/billing/history')
+    }
     isEditMode.value = true
     editId.value = route.query.editId
     try {

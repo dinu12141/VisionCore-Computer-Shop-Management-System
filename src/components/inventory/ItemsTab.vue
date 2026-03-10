@@ -25,7 +25,13 @@
         style="min-width: 180px"
       />
       <q-space />
-      <q-btn color="primary" icon="add" label="Add Item" @click="openCreate" />
+      <q-btn
+        v-if="authStore.isAdmin"
+        color="primary"
+        icon="add"
+        label="Add Item"
+        @click="openCreate"
+      />
     </div>
 
     <!-- Items Table -->
@@ -98,7 +104,7 @@
       </template>
 
       <template #body-cell-actions="props">
-        <q-td :props="props" class="q-gutter-xs">
+        <q-td :props="props" class="q-gutter-xs" v-if="authStore.isAdmin">
           <q-btn
             flat
             round
@@ -115,6 +121,9 @@
           <q-btn flat round dense color="negative" icon="delete" @click="deleteItem(props.row)">
             <q-tooltip>Deactivate item</q-tooltip>
           </q-btn>
+        </q-td>
+        <q-td :props="props" v-else>
+          <div class="text-grey-5">No Access</div>
         </q-td>
       </template>
     </DataTable>

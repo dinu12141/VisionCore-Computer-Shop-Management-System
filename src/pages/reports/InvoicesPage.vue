@@ -9,7 +9,7 @@
         </h1>
         <div class="text-grey-6 q-mt-xs">View, print and download every invoice in the system</div>
       </div>
-      <div class="col-auto q-gutter-sm">
+      <div class="col-auto q-gutter-sm" v-if="authStore.isAdmin">
         <q-btn unelevated color="primary" icon="add" label="New Invoice" rounded to="/billing" />
         <q-btn
           v-if="invoices.length > 0"
@@ -20,6 +20,9 @@
           rounded
           @click="exportCSV"
         />
+      </div>
+      <div class="col-auto q-gutter-sm" v-else-if="invoices.length > 0">
+        <q-btn flat color="grey-7" icon="download" label="Export CSV" rounded @click="exportCSV" />
       </div>
     </div>
 
@@ -262,7 +265,7 @@
             <q-tooltip>Download as PDF</q-tooltip>
           </q-btn>
           <q-btn
-            v-if="props.row.balance > 0"
+            v-if="props.row.balance > 0 && authStore.isAdmin"
             flat
             round
             dense
@@ -305,6 +308,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useQuasar, debounce } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
+import { useAuthStore } from 'src/stores/auth'
 import { renderInvoiceHTML } from 'src/utils/renderInvoiceHTML'
 import { toJpeg } from 'html-to-image'
 import { jsPDF } from 'jspdf'
@@ -312,6 +316,7 @@ import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
 
 const $q = useQuasar()
 const invoiceStore = useInvoiceStore()
+const authStore = useAuthStore()
 
 const invoices = ref([])
 const loading = ref(false)

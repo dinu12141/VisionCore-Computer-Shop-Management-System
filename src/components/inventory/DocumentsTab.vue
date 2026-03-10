@@ -59,7 +59,13 @@
       <q-btn color="teal" icon="summarize" label="Summary Report" @click="openSummaryReport">
         <q-tooltip>Generate a Summary Report of all visible documents</q-tooltip>
       </q-btn>
-      <q-btn color="primary" icon="add" label="New Document" @click="$emit('create-document')" />
+      <q-btn
+        v-if="authStore.isAdmin"
+        color="primary"
+        icon="add"
+        label="New Document"
+        @click="$emit('create-document')"
+      />
     </div>
 
     <!-- Documents Table -->
@@ -140,7 +146,7 @@
                 <q-tooltip>View / Print Report</q-tooltip>
               </q-btn>
               <q-btn
-                v-if="props.row.status === 'draft'"
+                v-if="props.row.status === 'draft' && authStore.isAdmin"
                 flat
                 dense
                 round
@@ -179,8 +185,10 @@
 import { ref, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { useDocumentList, fetchDocumentById } from 'src/services/inventoryService'
+import { useAuthStore } from 'src/stores/auth'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 defineEmits(['create-document', 'view-document', 'edit-document'])
 

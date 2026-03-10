@@ -12,7 +12,13 @@
             </q-item>
           </q-list>
         </q-btn-dropdown>
-        <q-btn color="primary" icon="add" label="Record Expense" class="q-ml-sm" />
+        <q-btn
+          v-if="authStore.isAdmin"
+          color="primary"
+          icon="add"
+          label="Record Expense"
+          class="q-ml-sm"
+        />
       </template>
     </PageHeader>
 
@@ -66,8 +72,10 @@ import ProfitTab from 'components/finance/ProfitTab.vue'
 import InvoicesTab from 'components/finance/InvoicesTab.vue'
 import PaymentsTab from 'components/finance/PaymentsTab.vue'
 import RefundsTab from 'components/finance/RefundsTab.vue'
+import { useAuthStore } from 'src/stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const tab = ref('dashboard')
 
 const tabs = ['dashboard', 'profit', 'invoices', 'payments', 'refunds']
