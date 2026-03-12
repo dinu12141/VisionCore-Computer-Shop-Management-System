@@ -50,18 +50,8 @@ export const useInvoiceStore = defineStore('invoices', () => {
         service_job_id: invoiceData.service_job_id || null,
       }
 
-      // The DB trigger handles invoice_no generation
-      const { data: invoice, error: invError } = await supabase
-        .from('invoices')
-        .insert(invoicePayload)
-        .select()
-        .single()
-
-      if (invError) throw invError
-
-      // Create items
+      // Prepare items for RPC
       const preparedItems = items.map((item) => ({
-        invoice_id: invoice.id,
         product_id: item.product_id || null,
         description: item.description,
         item_code: item.item_code || null,
@@ -76,25 +66,25 @@ export const useInvoiceStore = defineStore('invoices', () => {
         cost_unit_price_snapshot: Number(item.cost_price || 0),
       }))
 
-      const { error: itemsError } = await supabase.from('invoice_items').insert(preparedItems)
+      // Prepare payment payload for RPC
+      const paymentPayload = invoiceData.paid_amount > 0 ? {
+        amount: Number(invoiceData.paid_amount),
+        method: invoiceData.payment_type?.toUpperCase() || 'CASH',
+        customer_id: invoiceData.customer_id || null,
+        created_by: authStore.user?.id,
+      } : null
 
-      if (itemsError) throw itemsError
+      // Call the atomic transaction RPC
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_invoice_v2', {
+        p_payload: invoicePayload,
+        p_items: preparedItems,
+        p_payment: paymentPayload
+      })
 
-      // Record initial payment if any
-      if (invoiceData.paid_amount > 0) {
-        const { error: payError } = await supabase.from('invoice_payments').insert({
-          company_id: companyId,
-          invoice_id: invoice.id,
-          customer_id: invoiceData.customer_id || null,
-          amount: Number(invoiceData.paid_amount),
-          method: invoiceData.payment_type?.toUpperCase() || 'CASH',
-          created_by: authStore.user?.id,
-        })
-        if (payError) throw payError
-      }
+      if (rpcError) throw rpcError
 
-      // Re-fetch the full invoice with items and updated totals (from triggers)
-      return await getInvoice(invoice.id)
+      // Re-fetch the full invoice with items and updated totals
+      return await getInvoice(rpcResult.invoice_id)
     } finally {
       loading.value = false
     }
