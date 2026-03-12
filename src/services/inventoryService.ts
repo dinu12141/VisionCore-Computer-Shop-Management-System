@@ -548,16 +548,61 @@ export function useItemsList() {
     }
   }
 
+  function cleanItemPayload(payload: Record<string, any>, mode: 'create' | 'update' = 'create') {
+    const clean = { ...payload }
+    const toDelete = [
+      // View-only fields (from v_items_registry / joins)
+      'category_name',
+      'uom_code',
+      'uom_name',
+      'uom_id', // items table uses inventory_uom_id, not uom_id
+      'supplier_name',
+      'total_qty',
+      // Nested join objects returned by .select()
+      'category',
+      'inv_uom',
+      'default_supplier',
+      // System-managed
+      'id',
+      'created_at',
+      'updated_at',
+      'company_id',
+      // UI-only fields that should never go to the DB
+      'initial_stock',
+      'initial_warehouse_id',
+      // Prevent stock overwrites on item edit:
+      'qty_on_hand',
+      'stock_on_hand'
+    ]
+    // On update, also strip serials to prevent accidental overwrites
+    if (mode === 'update') {
+      toDelete.push('serials')
+    }
+    toDelete.forEach((key) => delete (clean as any)[key])
+    return clean
+  }
+
   async function createItem(item: Record<string, any>) {
     const companyId = getCompanyId()
-    const dataToInsert = {
-      ...item,
-      company_id: companyId,
-      cost_price: Number(item.cost_price || 0),
-      sale_price: Number(item.sale_price || 0),
-      avg_cost: Number(item.avg_cost || 0),
-      last_purchase_price: Number(item.last_purchase_price || 0),
-      reorder_level: Number(item.reorder_level || 0),
+
+    // Whitelist: only send columns that actually exist on the items table
+    const validCols = [
+      'category_id', 'code', 'name', 'description',
+      'inventory_uom_id', 'purchase_uom_id', 'purchase_to_inventory_factor',
+      'default_supplier_id', 'avg_cost', 'last_purchase_price',
+      'reorder_level', 'reorder_qty', 'is_active',
+      'cost_price', 'sale_price', 'brand', 'model_number',
+      'barcode', 'warranty', 'serials', 'attrs',
+    ]
+    const dataToInsert: Record<string, any> = { company_id: companyId }
+    for (const col of validCols) {
+      if (item[col] !== undefined) {
+        if (['cost_price', 'sale_price', 'avg_cost', 'last_purchase_price', 'reorder_level', 'reorder_qty'].includes(col)) {
+          dataToInsert[col] = Number(item[col] || 0)
+        } else {
+          dataToInsert[col] = item[col]
+        }
+      }
     }
 
     const { data, error } = await supabase
@@ -592,40 +637,28 @@ export function useItemsList() {
   }
 
   async function updateItem(id: string, updates: Record<string, any>) {
-    // Cleanup: remove non-updatable fields (e.g., from views or joined tables)
-    const cleanUpdates = { ...updates }
-    const toDelete = [
-      'category_name',
-      'uom_code',
-      'uom_name',
-      'uom_id', // items table uses inventory_uom_id, not uom_id
-      'supplier_name',
-      'total_qty',
-      'category',
-      'inv_uom',
-      'default_supplier',
-      'id',
-      'created_at',
-      'updated_at',
-      'company_id',
-      // UI-only fields that should never go to the DB
-      'initial_stock',
-      'initial_warehouse_id',
-      // Prevent stock overwrites on item edit:
-      'serials',
-      'total_qty',
-      'qty_on_hand',
-      'stock_on_hand'
+    // Whitelist: only send columns that actually exist on the items table
+    const validCols = [
+      'category_id', 'code', 'name', 'description',
+      'inventory_uom_id', 'purchase_uom_id', 'purchase_to_inventory_factor',
+      'default_supplier_id', 'avg_cost', 'last_purchase_price',
+      'reorder_level', 'reorder_qty', 'is_active',
+      'cost_price', 'sale_price', 'brand', 'model_number',
+      'barcode', 'warranty', 'attrs',
     ]
-    toDelete.forEach((key) => delete (cleanUpdates as any)[key])
-
-    const dataToUpdate = {
-      ...cleanUpdates,
-      cost_price: Number(updates.cost_price || 0),
-      sale_price: Number(updates.sale_price || 0),
-      avg_cost: Number(updates.avg_cost || 0),
-      last_purchase_price: Number(updates.last_purchase_price || 0),
+    const dataToUpdate: Record<string, any> = {}
+    for (const col of validCols) {
+      if (updates[col] !== undefined) {
+        // Ensure numeric fields are numbers
+        if (['cost_price', 'sale_price', 'avg_cost', 'last_purchase_price', 'reorder_level', 'reorder_qty'].includes(col)) {
+          dataToUpdate[col] = Number(updates[col] || 0)
+        } else {
+          dataToUpdate[col] = updates[col]
+        }
+      }
     }
+
+    console.log('[inventoryService] updateItem payload:', JSON.stringify(dataToUpdate))
 
     const { data, error } = await supabase
       .from('items')

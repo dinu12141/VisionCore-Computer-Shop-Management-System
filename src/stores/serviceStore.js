@@ -185,7 +185,7 @@ export const useServiceStore = defineStore('services', () => {
           company_id: companyId,
           branch_id: authStore.currentBranch?.id || null,
           customer_id: jobData.customer_id || null,
-          device_type: jobData.device_type || 'laptop',
+          device_type: jobData.device_type || 'Laptop',
           brand: jobData.brand || null,
           model: jobData.model || null,
           serial_no: jobData.serial_no || null,

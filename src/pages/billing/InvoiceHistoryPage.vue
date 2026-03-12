@@ -110,7 +110,7 @@
             >
           </div>
           <div class="text-caption text-grey-7">
-            {{ formatDate(props.row.invoice_date || props.row.created_at) }}
+            {{ formatDate(props.row.created_at) }}
           </div>
         </q-td>
       </template>
@@ -234,7 +234,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
@@ -251,6 +251,7 @@ const authStore = useAuthStore()
 const invoices = ref([])
 const loading = ref(false)
 const downloadingId = ref(null)
+let realtimeChannel = null
 
 // Dialog states
 const showPrintDialog = ref(false)
@@ -436,6 +437,38 @@ onMounted(async () => {
     }
   } else {
     fetchInvoices()
+  }
+
+  // ── Realtime subscription ─────────────────────────────────────
+  // Re-fetch whenever any invoice row changes (INSERT / UPDATE / DELETE)
+  const { supabase } = await import('src/boot/supabase')
+  const companyId = invoiceStore.loading !== undefined
+    ? (authStore.currentBranch?.company_id)
+    : null
+
+  if (companyId) {
+    realtimeChannel = supabase
+      .channel('invoice-history-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invoices',
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          fetchInvoices()
+        },
+      )
+      .subscribe()
+  }
+})
+
+onUnmounted(() => {
+  if (realtimeChannel) {
+    realtimeChannel.unsubscribe()
+    realtimeChannel = null
   }
 })
 </script>

@@ -119,11 +119,11 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title>Invoice - ${invoice.invoice_no}</title>
+      <title> </title>
       <style>
         @page {
           size: A4;
-          margin: 10mm 0;
+          margin: 0;
         }
 
         * { box-sizing: border-box; }
@@ -139,20 +139,31 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         }
 
         .page {
-          width: 210mm;
-          min-height: 277mm; /* Changed from height: 297mm to allow expansion */
-          margin: 0 auto;
+          width: 100%;
+          min-height: 0;
+          margin: 0;
           background: #fff;
-          padding: 12mm 15mm;
+          padding: 0;
           display: flex;
           flex-direction: column;
-          position: relative;
           color: #000 !important;
+        }
+
+        @media print {
+          /* 297mm A4 height - 12mm top spacer - 12mm bottom spacer = 273mm usable per page */
+          .page { min-height: 273mm; }
+          .footer { margin-top: auto; }
         }
 
         @media screen {
           body { background: #e0e0e0; padding: 20px 0; }
-          .page { box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+          .page {
+            width: 210mm;
+            min-height: 277mm;
+            margin: 0 auto;
+            padding: 12mm 15mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+          }
         }
 
         .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
@@ -178,18 +189,20 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           margin-bottom: 5px;
         }
 
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-          border: 1.5px solid #000;
-          margin-bottom: 0px;
-        }
+        /* Generic table styles only for items-table, not print-wrapper */
 
+        /* ── Print-wrapper table: repeating thead/tfoot create top/bottom margins on every page ── */
+        .print-wrapper { width: 100%; border: none; border-collapse: collapse; }
+        .print-wrapper > thead > tr > td,
+        .print-wrapper > tfoot > tr > td { height: 12mm; border: none; padding: 0; }
+        .print-wrapper > tbody > tr > td { border: none; padding: 0 15mm; }
+
+        /* ── Invoice items table ── */
+        .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1.5px solid #000; margin-bottom: 0; }
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; }
 
-        th {
+        .items-table th {
           background-color: #ed1c24 !important;
           color: #fff !important;
           text-align: center;
@@ -198,7 +211,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           border: 1px solid #000;
         }
 
-        td {
+        .items-table td {
           padding: 10px 10px;
           font-size: 14px;
           border-left: 1.2px solid #000;
@@ -253,7 +266,13 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         .text-right { text-align: right; }
       </style>
     </head>
-    <body >
+    <body>
+      <!-- Print-wrapper table: thead/tfoot repeat on every page = proper margins even with @page margin:0 -->
+      <table class="print-wrapper">
+        <thead><tr><td></td></tr></thead>
+        <tfoot><tr><td></td></tr></tfoot>
+        <tbody><tr><td>
+
       <div class="page">
         <div class="header-top">
           <div class="invoice-box"><h1>${invoiceTitle}</h1></div>
@@ -284,7 +303,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         </div>
 
         <div class="table-container">
-          <table>
+          <table class="items-table">
             <thead>
               <tr>
                 <th class="col-qty">Qty</th>
@@ -317,6 +336,9 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           <div class="thank-you">Thank you</div>
         </div>
       </div>
+
+        </td></tr></tbody>
+      </table>
     </body>
     </html>
   `

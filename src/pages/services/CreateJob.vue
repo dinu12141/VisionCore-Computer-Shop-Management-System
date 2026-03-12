@@ -351,7 +351,7 @@ const showCustomerDialog = ref(false)
 const form = reactive({
   job_no: '',
   customer_id: null,
-  device_type: 'laptop',
+  device_type: null,   // will be set from service_device_types after load
   brand: '',
   model: '',
   serial_no: '',
@@ -407,14 +407,18 @@ function filterCustomers(val, update) {
 async function loadDeviceTypes() {
   const companyId = authStore.currentBranch?.company_id
   if (!companyId) return
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('service_device_types')
     .select('id, name, icon, sort_order')
     .eq('company_id', companyId)
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
+  if (error) {
+    console.error('[CreateJob] Failed to load device types:', error)
+    return
+  }
   deviceTypeOptions.value = data || []
-  // Set default
+  // Auto-select first option if nothing is selected yet (new job only)
   if (!form.device_type && deviceTypeOptions.value.length > 0) {
     form.device_type = deviceTypeOptions.value[0].name
   }
@@ -477,13 +481,16 @@ async function saveNewDeviceType() {
 async function loadCustomers() {
   const companyId = authStore.currentBranch?.company_id
   if (!companyId) return
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('customers')
     .select('id, name, phone, customer_code')
     .eq('company_id', companyId)
     .eq('status', 'active')
     .order('name')
     .limit(500)
+  if (error) {
+    console.error('[CreateJob] Failed to load customers:', error)
+  }
   customers.value = data || []
   filteredCustomers.value = data || []
 }
@@ -518,6 +525,14 @@ async function loadTechnicians() {
 }
 
 async function submitJob() {
+  // Validate device type
+  if (!form.device_type) {
+    $q.notify({ type: 'warning', message: 'Please select a device type' })
+    step.value = 2
+    return
+  }
+
+  // Validate issue description
   if (!form.issue_reported) {
     $q.notify({ type: 'warning', message: 'Please describe the issue reported by customer' })
     step.value = 3

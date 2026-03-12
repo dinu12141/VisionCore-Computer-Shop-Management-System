@@ -196,8 +196,8 @@
       >
         <q-card-section class="row items-center q-pb-none">
           <div class="column">
-            <div class="text-h6 text-weight-medium">Add Product & Serials</div>
-            <div class="text-caption text-grey-7">Product Name</div>
+            <div class="text-h6 text-weight-medium">{{ editingItem ? 'Edit Product' : 'Add Product & Serials' }}</div>
+            <div class="text-caption text-grey-7">{{ editingItem ? 'Update item details' : 'Product Name' }}</div>
           </div>
           <q-space />
           <q-btn icon="close" flat round dense v-close-popup />
@@ -207,6 +207,19 @@
 
         <q-card-section class="q-pa-md">
           <div class="row q-col-gutter-md">
+            <!-- Item Name (always visible and editable) -->
+            <div class="col-12">
+              <q-input
+                :dark="$q.dark.isActive"
+                outlined
+                v-model="form.name"
+                label="Item Name *"
+                placeholder="e.g. Samsung 970 EVO 1TB SSD"
+                dense
+                :hint="editingItem ? 'Edit the item name directly here' : 'Full product name (auto-filled from Brand + Model if left blank)'"
+              />
+            </div>
+
             <!-- Brand, Model and Warranty -->
             <div class="col-4">
               <q-input :dark="$q.dark.isActive" outlined v-model="form.brand" label="Brand" dense />
@@ -934,12 +947,17 @@ async function saveItem() {
   }
   saving.value = true
   try {
-    if (!form.name) form.name = `${form.brand} ${form.model_number}`.trim()
+    // Only auto-generate name from brand+model if name is truly blank
+    if (!form.name || form.name.trim() === '') {
+      form.name = `${form.brand} ${form.model_number}`.trim()
+    }
     if (editingItem.value) {
       const updatePayload = { ...form }
       delete updatePayload.initial_stock
       delete updatePayload.initial_warehouse_id
-      await updateItem(editingItem.value.id, updatePayload)
+      const updated = await updateItem(editingItem.value.id, updatePayload)
+      // Also refresh the editingItem ref so re-opens show the latest data
+      editingItem.value = updated
       $q.notify({ type: 'positive', message: 'Product updated!' })
     } else {
       // Create a clean payload for the DB
@@ -954,43 +972,30 @@ async function saveItem() {
       // Handle Initial Stock if provided
       if (openingStock > 0 && openingWarehouseId) {
         try {
-          // If the item has serials, the trigger 'trg_sync_serials' already sets stock = serials.length
-          // We only need to adjust for the 'extra' non-serialized stock.
-          const serialCount = form.serials?.length || 0
-          const adjustmentQty = openingStock - serialCount
-
-          if (adjustmentQty <= 0) {
-            $q.notify({
-              type: 'positive',
-              message: `Opening stock of ${openingStock} initialized from serial numbers.`,
-              icon: 'qr_code',
-            })
-          } else {
-            const docHeader = {
-              doc_type: 'ADJUSTMENT',
-              doc_date: new Date().toISOString().split('T')[0],
-              warehouse_id: openingWarehouseId,
-              remarks: `Opening stock for new item: ${newItem.name} (Non-serialized portion)`,
-            }
-
-            const docLines = [
-              {
-                item_id: newItem.id,
-                uom_id: newItem.inventory_uom_id || form.inventory_uom_id,
-                quantity: adjustmentQty,
-                unit_cost: form.cost_price || 0,
-              },
-            ]
-
-            const doc = await createDocument(docHeader, docLines)
-            await postDocument(doc.id)
-
-            $q.notify({
-              type: 'positive',
-              message: `Added ${adjustmentQty} units as non-serialized opening stock.`,
-              icon: 'inventory_2',
-            })
+          const docHeader = {
+            doc_type: 'ADJUSTMENT',
+            doc_date: new Date().toISOString().split('T')[0],
+            warehouse_id: openingWarehouseId,
+            remarks: `Opening stock for new item: ${newItem.name}`,
           }
+
+          const docLines = [
+            {
+              item_id: newItem.id,
+              uom_id: newItem.inventory_uom_id || form.inventory_uom_id,
+              quantity: openingStock,
+              unit_cost: form.cost_price || 0,
+            },
+          ]
+
+          const doc = await createDocument(docHeader, docLines)
+          await postDocument(doc.id)
+
+          $q.notify({
+            type: 'positive',
+            message: `Opening stock of ${openingStock} units added.`,
+            icon: 'inventory_2',
+          })
         } catch (err) {
           console.error('Failed to create opening stock document:', err)
           $q.notify({

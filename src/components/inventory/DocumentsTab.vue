@@ -432,6 +432,7 @@ function openSummaryReport() {
   .status-cancelled { background:#fee2e2; color:#991b1b; }
   .footer { text-align:center; margin-top:24px; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:10px; }
   @media print {
+    @page { margin: 0; }
     body { padding:10px; }
     .stats-row, .breakdown-grid { break-inside:avoid; }
     th, td { padding:4px 6px; font-size:10px; }
@@ -539,6 +540,7 @@ function buildDocumentReportHTML(header, lines) {
   .totals-box .grand { font-size:16px; font-weight:700; color:#4f46e5; border-top:2px solid #4f46e5; padding-top:8px; margin-top:4px; }
   .footer { text-align:center; margin-top:40px; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:10px; }
   @media print {
+    @page { margin: 0; }
     body { padding:10px; }
     th, td { padding:4px 6px; font-size:10px; }
   }

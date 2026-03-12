@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- VISION CORE ERP: SERVICES MODULE â€” COMPLETE MIGRATION
 -- Copy-paste this entire file into Supabase SQL Editor and run it
 -- ============================================================================
@@ -23,8 +23,7 @@ CREATE TABLE IF NOT EXISTS service_jobs (
     branch_id       UUID REFERENCES branches(id) ON DELETE SET NULL,
     job_no          TEXT NOT NULL,
     customer_id     UUID REFERENCES customers(id) ON DELETE SET NULL,
-    device_type     TEXT NOT NULL DEFAULT 'laptop'
-                    CHECK (device_type IN ('laptop','desktop','printer','phone','tablet','monitor','other')),
+    device_type     TEXT NOT NULL DEFAULT 'Laptop',
     brand           TEXT,
     model           TEXT,
     serial_no       TEXT,

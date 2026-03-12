@@ -69,7 +69,6 @@ export const useCustomerStore = defineStore('customers', () => {
       email: customerData.email || null,
       address: customerData.address || null,
       nic_brn: customerData.nic_brn || null,
-      tax_number: customerData.tax_number || null,
       category_id: customerData.category_id || null,
       status: customerData.status || 'active',
       notes: customerData.notes || null,
@@ -83,9 +82,12 @@ export const useCustomerStore = defineStore('customers', () => {
   }
 
   async function updateCustomer(id, updates) {
-    // Ensure id is not in the updates object to avoid internal PG errors
-    const cleanUpdates = { ...updates }
-    delete cleanUpdates.id
+    // Only send columns that exist in the customers table
+    const cleanUpdates = {}
+    const validCols = ['name', 'phone', 'email', 'address', 'nic_brn', 'category_id', 'status', 'notes']
+    for (const col of validCols) {
+      if (updates[col] !== undefined) cleanUpdates[col] = updates[col]
+    }
 
     const { data, error } = await supabase
       .from('customers')

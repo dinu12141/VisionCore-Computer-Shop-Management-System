@@ -210,6 +210,7 @@ function printDoc() {
 }
 
 @media print {
+  @page { margin: 0; }
   .no-print {
     display: none !important;
   }

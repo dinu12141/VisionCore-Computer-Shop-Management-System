@@ -1181,7 +1181,7 @@ async function generateReport() {
       const report = await store.createReport(job.value.id, reportForm.type, content)
       $q.notify({ type: 'positive', message: 'Report generated' })
       // Auto print after creation
-      printReport(report)
+      await printReport(report)
     }
     showReportDialog.value = false
   } catch {
@@ -1194,12 +1194,47 @@ async function generateReport() {
   }
 }
 
-function printReport(report, autoPrint = true) {
+async function printReport(report, autoPrint = true) {
   const content = report.content_json || {}
   const j = content.job || job.value || {}
   const diag = content.diagnosis || []
   const parts = content.parts || []
   const sections = content.sections || {}
+
+  // ── Convert logo to base64 so it renders in a blank window.open() ──
+  // This uses an Image + Canvas approach for better compatibility than direct fetch
+  const getLogoDataUrl = async () => {
+    const paths = ['/logo.jpg', '/logo.png']
+    for (const path of paths) {
+      try {
+        const url = window.location.origin + path
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        const loaded = new Promise((resolve, reject) => {
+          img.onload = () => resolve(img)
+          img.onerror = () => reject()
+        })
+        img.src = url
+        await loaded
+        
+        // Convert to base64 via canvas
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0)
+        return canvas.toDataURL('image/jpeg')
+      } catch {
+        // Try next path
+      }
+    }
+    return ''
+  }
+
+  const logoDataUrl = await getLogoDataUrl()
+  const logoHtml = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="Vision Computers Logo">`
+    : ''
 
   const title =
     report.report_type === 'inspection'
@@ -1209,10 +1244,11 @@ function printReport(report, autoPrint = true) {
         : 'Service Report'
 
   let html = `
-    <html><head><title>${title}</title>
+    <html><head><title> </title>
     <style>
+      @page { margin: 12mm 15mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #1a1a2e; }
+      body { font-family: 'Segoe UI', sans-serif; padding: 0; color: #1a1a2e; }
       .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; }
       .header .org-info { text-align: left; }
       .header .org-info h1 { font-size: 24px; color: #4f46e5; }
@@ -1232,7 +1268,7 @@ function printReport(report, autoPrint = true) {
       .sig-box { border-top: 1px solid #333; padding-top: 8px; text-align: center; font-size: 12px; }
       .footer { text-align: center; margin-top: 40px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 12px; }
       @media print {
-        body { padding: 5px; font-size: 11px; color: #000; }
+        body { font-size: 11px; color: #000; }
         .header { margin-bottom: 10px; padding-bottom: 5px; border-bottom-width: 2px; }
         .header .logo img { max-height: 50px; }
         .header .org-info h1 { font-size: 18px; }
@@ -1254,7 +1290,7 @@ function printReport(report, autoPrint = true) {
         <h2>${title}</h2>
       </div>
       <div class="logo">
-        <img src="/logo.jpg" alt="Vision Computers Logo">
+        ${logoHtml}
       </div>
     </div>
     <div class="report-meta">
@@ -1371,7 +1407,11 @@ function printReport(report, autoPrint = true) {
   printWindow.document.write(html)
   printWindow.document.close()
   if (autoPrint) {
-    printWindow.print()
+    // Small delay to ensure base64 image is ready for print preview
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
   }
 }
 

@@ -1,4 +1,4 @@
-﻿-- Ensure extension for UUID generation is enabled
+-- Ensure extension for UUID generation is enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Helper Function to get user company IDs
@@ -10,14 +10,13 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
     JOIN branches b ON b.id = ub.branch_id
     WHERE ub.user_id = auth.uid();
 $$;
-
 -- ============================================================================
 -- ERP MODULE: SERVICES (LAPTOP/DEVICE REPAIR & SERVICE MANAGEMENT)
 -- Vision Core ERP v2
 -- Date: 2026-03-03
 -- ============================================================================
 
--- â”€â”€â”€ 1. SERVICE JOBS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ─── 1. SERVICE JOBS ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS service_jobs (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -28,8 +27,7 @@ CREATE TABLE IF NOT EXISTS service_jobs (
     customer_id     UUID REFERENCES customers(id) ON DELETE SET NULL,
 
     -- Device Info
-    device_type     TEXT NOT NULL DEFAULT 'laptop'
-                    CHECK (device_type IN ('laptop','desktop','printer','phone','tablet','monitor','other')),
+    device_type     TEXT NOT NULL DEFAULT 'Laptop',
     brand           TEXT,
     model           TEXT,
     serial_no       TEXT,
@@ -272,56 +270,77 @@ ALTER TABLE service_issue_templates ENABLE ROW LEVEL SECURITY;
 -- Helper: get user's company IDs
 
 -- SERVICE JOBS
+DROP POLICY IF EXISTS service_jobs_select ON service_jobs;
 CREATE POLICY service_jobs_select ON service_jobs FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS service_jobs_insert ON service_jobs;
 CREATE POLICY service_jobs_insert ON service_jobs FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS service_jobs_update ON service_jobs;
 CREATE POLICY service_jobs_update ON service_jobs FOR UPDATE
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS service_jobs_delete ON service_jobs;
 CREATE POLICY service_jobs_delete ON service_jobs FOR DELETE
     USING (company_id IN (SELECT fn_user_company_ids()));
 
 -- DIAGNOSIS ITEMS
+DROP POLICY IF EXISTS sdi_select ON service_diagnosis_items;
 CREATE POLICY sdi_select ON service_diagnosis_items FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sdi_insert ON service_diagnosis_items;
 CREATE POLICY sdi_insert ON service_diagnosis_items FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sdi_update ON service_diagnosis_items;
 CREATE POLICY sdi_update ON service_diagnosis_items FOR UPDATE
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sdi_delete ON service_diagnosis_items;
 CREATE POLICY sdi_delete ON service_diagnosis_items FOR DELETE
     USING (company_id IN (SELECT fn_user_company_ids()));
 
 -- PARTS USED
+DROP POLICY IF EXISTS spu_select ON service_parts_used;
 CREATE POLICY spu_select ON service_parts_used FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS spu_insert ON service_parts_used;
 CREATE POLICY spu_insert ON service_parts_used FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS spu_update ON service_parts_used;
 CREATE POLICY spu_update ON service_parts_used FOR UPDATE
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS spu_delete ON service_parts_used;
 CREATE POLICY spu_delete ON service_parts_used FOR DELETE
     USING (company_id IN (SELECT fn_user_company_ids()));
 
 -- ACTIVITY LOG
+DROP POLICY IF EXISTS sal_select ON service_activity_log;
 CREATE POLICY sal_select ON service_activity_log FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sal_insert ON service_activity_log;
 CREATE POLICY sal_insert ON service_activity_log FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
 
 -- REPORTS
+DROP POLICY IF EXISTS sr_select ON service_reports;
 CREATE POLICY sr_select ON service_reports FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sr_insert ON service_reports;
 CREATE POLICY sr_insert ON service_reports FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sr_update ON service_reports;
 CREATE POLICY sr_update ON service_reports FOR UPDATE
     USING (company_id IN (SELECT fn_user_company_ids()));
 
 -- ISSUE TEMPLATES
+DROP POLICY IF EXISTS sit_select ON service_issue_templates;
 CREATE POLICY sit_select ON service_issue_templates FOR SELECT
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sit_insert ON service_issue_templates;
 CREATE POLICY sit_insert ON service_issue_templates FOR INSERT
     WITH CHECK (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sit_update ON service_issue_templates;
 CREATE POLICY sit_update ON service_issue_templates FOR UPDATE
     USING (company_id IN (SELECT fn_user_company_ids()));
+DROP POLICY IF EXISTS sit_delete ON service_issue_templates;
 CREATE POLICY sit_delete ON service_issue_templates FOR DELETE
     USING (company_id IN (SELECT fn_user_company_ids()));
 
