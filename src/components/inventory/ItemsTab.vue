@@ -355,7 +355,7 @@
             </div>
 
             <!-- Serial Numbers Section -->
-            <div class="col-12 q-mt-md">
+            <div class="col-12 q-mt-md" v-if="!editingItem">
               <div class="text-subtitle2 text-weight-bold">Serial Numbers</div>
               <div class="text-caption text-grey-7 q-mb-sm">
                 Enter each serial numbers separately

@@ -50,6 +50,15 @@
                   stack-label
                   style="width: 150px"
                 />
+                <q-input
+                  v-model="form.customer_po_no"
+                  label="Customer PO No"
+                  outlined
+                  dense
+                  stack-label
+                  style="width: 180px"
+                  placeholder="Optional"
+                />
               </div>
             </div>
 
@@ -386,6 +395,7 @@ const form = reactive({
   is_service_invoice: false,
   service_job_id: null,
   invoice_date: currentDate,
+  customer_po_no: '',
 })
 
 const VAT_RATE = 0.18
@@ -433,6 +443,7 @@ onMounted(async () => {
       form.isPartPayment = Number(inv.balance || 0) > 0
       form.collection_date = inv.collection_date || ''
       form.invoice_date = inv.invoice_date || currentDate
+      form.customer_po_no = inv.customer_po_no || ''
 
       // Map items
       items.value = (inv.items || []).map((i) => ({
@@ -619,6 +630,7 @@ async function submitInvoice() {
       is_service_invoice: form.is_service_invoice,
       service_job_id: form.service_job_id,
       invoice_date: form.invoice_date || currentDate,
+      customer_po_no: form.customer_po_no || null,
     }
 
     const invoice = isEditMode.value
@@ -656,6 +668,7 @@ async function submitInvoice() {
     form.isPartPayment = false
     form.collection_date = ''
     form.isVatInvoice = false
+    form.customer_po_no = ''
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
   }

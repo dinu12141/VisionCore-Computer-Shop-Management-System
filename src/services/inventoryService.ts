@@ -611,6 +611,11 @@ export function useItemsList() {
       // UI-only fields that should never go to the DB
       'initial_stock',
       'initial_warehouse_id',
+      // Prevent stock overwrites on item edit:
+      'serials',
+      'total_qty',
+      'qty_on_hand',
+      'stock_on_hand'
     ]
     toDelete.forEach((key) => delete (cleanUpdates as any)[key])
 

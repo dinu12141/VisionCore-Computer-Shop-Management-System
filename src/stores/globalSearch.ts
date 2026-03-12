@@ -174,13 +174,13 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
     // Now search invoices table
     let invQuery = supabase
       .from('invoices')
-      .select('id, invoice_no, total, payment_status, customer_snapshot')
+      .select('id, invoice_no, total, payment_status, customer_snapshot, customer_po_no')
       .eq('company_id', companyId)
 
     if (soldInvoiceIds.length > 0) {
-      invQuery = invQuery.or(`invoice_no.ilike.${pat},id.in.(${soldInvoiceIds.join(',')})`)
+      invQuery = invQuery.or(`invoice_no.ilike.${pat},customer_po_no.ilike.${pat},id.in.(${soldInvoiceIds.join(',')})`)
     } else {
-      invQuery = invQuery.or(`invoice_no.ilike.${pat}`)
+      invQuery = invQuery.or(`invoice_no.ilike.${pat},customer_po_no.ilike.${pat}`)
     }
 
     const { data: invs } = await invQuery.limit(limit)
@@ -192,7 +192,7 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
         title: i.invoice_no,
         subtitle: matchedSN
           ? `Contains SN: ${matchedSN} | Total: LKR ${i.total}`
-          : `Customer: ${i.customer_snapshot?.name || 'Walk-in'} | ${i.payment_status} | LKR ${i.total}`,
+          : `Customer: ${i.customer_snapshot?.name || 'Walk-in'} | ${i.payment_status} | LKR ${i.total}${i.customer_po_no ? ' | PO: ' + i.customer_po_no : ''}`,
         extra: {
           status: i.payment_status,
           total: i.total,

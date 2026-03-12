@@ -272,6 +272,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           <div class="meta-info-table">
             <div class="meta-item"><span class="meta-label">Date:</span> <span class="meta-val">${formatDate(invoice.invoice_date || invoice.created_at || new Date())}</span></div>
             <div class="meta-item"><span class="meta-label">Invoice No.:</span> <span class="meta-val">${invoice.invoice_no || ''}</span></div>
+            ${invoice.customer_po_no ? `<div class="meta-item"><span class="meta-label">Cust. PO No:</span> <span class="meta-val">${invoice.customer_po_no}</span></div>` : ''}
           </div>
         </div>
 

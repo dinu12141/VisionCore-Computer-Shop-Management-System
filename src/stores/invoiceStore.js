@@ -48,6 +48,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
           : {}),
         is_service_invoice: !!invoiceData.is_service_invoice,
         service_job_id: invoiceData.service_job_id || null,
+        customer_po_no: invoiceData.customer_po_no || null,
       }
 
       // Prepare items for RPC
@@ -146,7 +147,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
 
         const matchedInvoiceIds = (itemData || []).map((i) => i.invoice_id)
 
-        let orString = `invoice_no.ilike.${qPattern},customer_snapshot->>name.ilike.${qPattern},customer_snapshot->>phone.ilike.${qPattern},notes.ilike.${qPattern}`
+        let orString = `invoice_no.ilike.${qPattern},customer_po_no.ilike.${qPattern},customer_snapshot->>name.ilike.${qPattern},customer_snapshot->>phone.ilike.${qPattern},notes.ilike.${qPattern}`
 
         if (matchedInvoiceIds.length > 0) {
           const uuidQueries = matchedInvoiceIds.map((id) => `id.eq.${id}`).join(',')
@@ -285,6 +286,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
               total_before_vat: Number(invoiceData.total_before_vat || 0),
             }
           : {}),
+        customer_po_no: invoiceData.customer_po_no || null,
       }
 
       const { error: invError } = await supabase.from('invoices').update(updatePayload).eq('id', id)
