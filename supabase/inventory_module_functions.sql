@@ -531,7 +531,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_post_inventory ON inventory_documents;
 CREATE TRIGGER trg_post_inventory
@@ -666,6 +665,11 @@ END $$;
 -- =====================================================
 -- 12. HELPER VIEWS
 -- =====================================================
+-- DROP in dependency order (v_low_stock_alerts depends on v_stock_on_hand)
+-- before recreating, so PostgreSQL doesn't reject column type changes.
+DROP VIEW IF EXISTS v_low_stock_alerts CASCADE;
+DROP VIEW IF EXISTS v_stock_on_hand CASCADE;
+DROP VIEW IF EXISTS v_inventory_ledger CASCADE;
 
 CREATE OR REPLACE VIEW v_stock_on_hand AS
 SELECT

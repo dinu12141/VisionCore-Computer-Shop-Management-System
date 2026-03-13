@@ -203,40 +203,52 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
       })
     })
 
-    // Items (Search by name, code, or serial number in inventory)
-    const { data: serialHits } = await supabase
-      .from('item_serials')
-      .select('product_id, serial_number')
+    // Items (Search by name, code, or serial number stored in items.serials JSONB array)
+    // NOTE: PostgreSQL cannot index inside a JSONB text array with ilike via PostgREST directly.
+    // We fetch items matching name/code first, then do a separate query for SN matches
+    // using the @> (contains) operator via a raw filter on the serials JSONB column.
+    // This is safe — items.serials is JSONB array of strings, not a separate table.
+
+    // Step A: items matching name or code
+    const { data: nameCodeItems } = await supabase
+      .from('items')
+      .select('id, name, code, serials')
       .eq('company_id', companyId)
-      .ilike('serial_number', pat)
+      .or(`name.ilike.${pat},code.ilike.${pat}`)
+      .limit(limit)
+
+    // Step B: items where any serial in the serials JSONB array matches the query
+    // PostgREST cs (contains) only works for exact subset match, so we use
+    // a text-search approach: filter where serials::text ilike the pattern
+    const { data: serialMatchItems } = await supabase
+      .from('items')
+      .select('id, name, code, serials')
+      .eq('company_id', companyId)
+      .ilike('serials::text', pat)
       .limit(10)
 
-    const serialProductIds = (serialHits || []).map((s) => s.product_id)
+    // Merge both result sets (dedupe by id)
+    const allItemMap = new Map<string, typeof nameCodeItems[0]>()
+    for (const i of nameCodeItems || []) allItemMap.set(i.id, i)
+    for (const i of serialMatchItems || []) if (!allItemMap.has(i.id)) allItemMap.set(i.id, i)
 
-    let itemQuery = supabase.from('items').select('id, name, code').eq('company_id', companyId)
-
-    if (serialProductIds.length > 0) {
-      itemQuery = itemQuery.or(
-        `name.ilike.${pat},code.ilike.${pat},id.in.(${serialProductIds.join(',')})`,
-      )
-    } else {
-      itemQuery = itemQuery.or(`name.ilike.${pat},code.ilike.${pat}`)
-    }
-
-    const { data: items } = await itemQuery.limit(limit)
-    ;(items || []).forEach((i) => {
-      const matchedSN = serialHits?.find((sh) => sh.product_id === i.id)?.serial_number
+    const trimmedQ = q.toLowerCase()
+    for (const i of allItemMap.values()) {
+      // Check if the query matches a specific serial in this item's serials array
+      const matchedSN = Array.isArray(i.serials)
+        ? (i.serials as string[]).find((sn) => String(sn).toLowerCase().includes(trimmedQ))
+        : undefined
       out.push({
         entity_type: 'item',
         entity_id: i.id,
         title: i.name,
         subtitle: matchedSN
-          ? `In Stock: ${matchedSN} | Code: ${i.code}`
+          ? `In Stock SN: ${matchedSN} | Code: ${i.code || 'N/A'}`
           : `Code: ${i.code || 'N/A'}`,
         extra: { code: i.code, matched_sn: matchedSN },
         score: matchedSN ? 95 : 70,
       })
-    })
+    }
 
     // Service Jobs
     const { data: jobs } = await supabase

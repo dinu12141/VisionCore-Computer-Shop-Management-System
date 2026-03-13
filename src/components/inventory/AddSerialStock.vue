@@ -153,6 +153,7 @@ import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from 'src/stores/auth'
+import { createDocument, postDocument } from 'src/services/inventoryService'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -298,36 +299,91 @@ async function saveItems() {
 
   saving.value = true
   try {
-    const companyId = authStore.currentBranch?.company_id
+    const companyId =
+      authStore.currentBranch?.company_id ||
+      authStore.user?.user_metadata?.company_id ||
+      authStore.profile?.company_id
 
-    // In a real scenario, we'd insert into a 'item_serials' table.
-    // For now, I'll mock the insertion or assume the table exists as per our schema design.
-    // Each SN will be linked to the product ID.
+    if (!companyId) throw new Error('Company ID not found. Please select a branch.')
 
-    const payload = serials.value.map((sn) => ({
-      product_id: selectedProduct.value.value,
-      serial_number: sn,
-      status: 'available',
-      company_id: companyId,
-    }))
+    const productId = selectedProduct.value.value
 
-    const { error } = await supabase.from('item_serials').insert(payload)
+    // ── 1. Fetch current item serials + UOM + avg_cost ─────────────────────
+    const { data: item, error: fetchErr } = await supabase
+      .from('items')
+      .select('serials, inventory_uom_id, avg_cost')
+      .eq('id', productId)
+      .single()
 
-    if (error) throw error
+    if (fetchErr) throw fetchErr
+    if (!item.inventory_uom_id) throw new Error('Item has no UOM configured. Cannot create stock adjustment.')
+
+    const existingSerials = Array.isArray(item.serials) ? item.serials : []
+
+    // ── 2. Merge serials — skip duplicates ─────────────────────────────────
+    const newUnique = serials.value.filter((sn) => !existingSerials.includes(sn))
+    if (newUnique.length === 0) {
+      $q.notify({ type: 'warning', message: 'All serial numbers already exist in inventory.' })
+      return
+    }
+
+    const mergedSerials = [...existingSerials, ...newUnique]
+
+    // ── 3. Update items.serials JSONB directly ─────────────────────────────
+    // (updateItem() whitelist intentionally excludes serials to prevent
+    //  accidental overwrite during normal item edits — update directly here)
+    const { error: updateErr } = await supabase
+      .from('items')
+      .update({ serials: mergedSerials })
+      .eq('id', productId)
+
+    if (updateErr) throw updateErr
+
+    // ── 4. Get default active warehouse ────────────────────────────────────
+    const { data: wh, error: whErr } = await supabase
+      .from('warehouses')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .order('is_default', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (whErr || !wh) throw new Error('No active warehouse found. Cannot create stock adjustment.')
+
+    // ── 5. Create ADJUSTMENT doc + post it (updates stock_on_hand) ─────────
+    const doc = await createDocument(
+      {
+        doc_type: 'ADJUSTMENT',
+        doc_date: new Date().toISOString().split('T')[0],
+        warehouse_id: wh.id,
+        remarks: `Bulk serial stock addition: ${newUnique.length} unit(s) added`,
+      },
+      [
+        {
+          item_id: productId,
+          uom_id: item.inventory_uom_id,
+          quantity: newUnique.length,
+          unit_cost: item.avg_cost || 0,
+          notes: `Serial numbers: ${newUnique.slice(0, 5).join(', ')}${newUnique.length > 5 ? ` +${newUnique.length - 5} more` : ''}`,
+        },
+      ],
+    )
+
+    await postDocument(doc.id)
 
     $q.notify({
       type: 'positive',
-      message: `Successfully saved ${serials.value.length} units to inventory`,
+      message: `Successfully added ${newUnique.length} serial number(s) to inventory`,
     })
 
-    // Clear form and close (or keep open if user wants to add more)
     serials.value = []
     selectedProduct.value = null
   } catch (err) {
-    console.error(err)
+    console.error('[AddSerialStock] saveItems error:', err)
     $q.notify({
       type: 'negative',
-      message: err.message || 'Error saving stock. Make sure item_serials table exists.',
+      message: err.message || 'Error saving stock to inventory.',
     })
   } finally {
     saving.value = false

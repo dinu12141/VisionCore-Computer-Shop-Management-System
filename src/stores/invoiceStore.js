@@ -258,64 +258,64 @@ export const useInvoiceStore = defineStore('invoices', () => {
       const companyId = getCompanyId()
       if (!companyId) throw new Error('Company ID missing')
 
-      // 1. Explicitly build the update payload to avoid non-existent columns
-      const updatePayload = {
+      // Build payload matching what update_invoice_v2 expects
+      const p_payload = {
         customer_id: invoiceData.customer_id || null,
         status: invoiceData.status || 'issued',
         payment_type: invoiceData.payment_type || 'cash',
-        subtotal: Number(invoiceData.subtotal || 0),
-        discount: Number(invoiceData.discount || 0),
-        tax: Number(invoiceData.tax || 0),
-        total: Number(invoiceData.total || 0),
-        paid_amount: Number(invoiceData.paid_amount || 0),
-        balance: Math.max(
-          0,
-          Math.round(
-            (Number(invoiceData.total || 0) - Number(invoiceData.paid_amount || 0)) * 100,
-          ) / 100,
+        subtotal: String(Number(invoiceData.subtotal || 0)),
+        discount: String(Number(invoiceData.discount || 0)),
+        tax: String(Number(invoiceData.tax || 0)),
+        total: String(Number(invoiceData.total || 0)),
+        paid_amount: String(Number(invoiceData.paid_amount || 0)),
+        balance: String(
+          Math.max(
+            0,
+            Math.round(
+              (Number(invoiceData.total || 0) - Number(invoiceData.paid_amount || 0)) * 100,
+            ) / 100,
+          ),
         ),
         customer_snapshot: invoiceData.customer_snapshot || {},
         notes: invoiceData.notes || null,
         collection_date: invoiceData.collection_date || null,
         invoice_date: invoiceData.invoice_date || null,
-        // VAT fields
-        ...(invoiceData.is_vat_invoice !== undefined
-          ? {
-              is_vat_invoice: !!invoiceData.is_vat_invoice,
-              vat_amount: Number(invoiceData.vat_amount || 0),
-              total_before_vat: Number(invoiceData.total_before_vat || 0),
-            }
-          : {}),
+        is_vat_invoice: String(!!invoiceData.is_vat_invoice),
+        vat_amount: String(Number(invoiceData.vat_amount || 0)),
+        total_before_vat: String(Number(invoiceData.total_before_vat || 0)),
+        is_service_invoice: String(!!invoiceData.is_service_invoice),
+        service_job_id: invoiceData.service_job_id || null,
         customer_po_no: invoiceData.customer_po_no || null,
+        created_by: invoiceData.created_by || null,
       }
 
-      const { error: invError } = await supabase.from('invoices').update(updatePayload).eq('id', id)
-
-      if (invError) throw invError
-
-      // 2. Delete old items
-      const { error: delError } = await supabase.from('invoice_items').delete().eq('invoice_id', id)
-
-      if (delError) throw delError
-
-      // 3. Insert new items
-      const preparedItems = items.map((item) => ({
-        invoice_id: id,
+      const p_items = items.map((item) => ({
         product_id: item.product_id || null,
         description: item.description,
         item_code: item.item_code || null,
-        qty: Number(item.qty || 0),
-        unit_price: Number(item.unit_price || 0),
-        discount: Number(item.discount || 0),
-        line_total: Number(item.line_total || 0),
+        qty: String(Number(item.qty || 0)),
+        unit_price: String(Number(item.unit_price || 0)),
+        discount: String(Number(item.discount || 0)),
+        line_total: String(Number(item.line_total || 0)),
         warranty: item.warranty || null,
         serial_number: item.serial_number || null,
-        selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
-        cost_unit_price_snapshot: Number(item.cost_price || 0),
+        selling_unit_price_snapshot: String(Number(item.unit_price || item.selling_price || 0)),
+        cost_unit_price_snapshot: String(Number(item.cost_price || 0)),
       }))
 
-      const { error: itemsError } = await supabase.from('invoice_items').insert(preparedItems)
-      if (itemsError) throw itemsError
+      // update_invoice_v2 atomically:
+      //   1. Cancels the existing posted GIN (reverses stock)
+      //   2. Updates invoice header
+      //   3. Replaces invoice_items
+      //   4. Creates & posts a new GIN for updated items
+      const { data, error: rpcError } = await supabase.rpc('update_invoice_v2', {
+        p_invoice_id: id,
+        p_items,
+        p_payload,
+      })
+
+      if (rpcError) throw rpcError
+      if (data?.success === false) throw new Error(data?.message || 'update_invoice_v2 failed')
 
       return await getInvoice(id)
     } finally {
