@@ -26,7 +26,7 @@
       />
       <q-space />
       <q-btn
-        v-if="authStore.isAdmin"
+        v-if="authStore.hasAnyRole(['admin', 'manager', 'inventory'])"
         color="primary"
         icon="add"
         label="Add Item"
@@ -104,7 +104,7 @@
       </template>
 
       <template #body-cell-actions="props">
-        <q-td :props="props" class="q-gutter-xs" v-if="authStore.isAdmin">
+        <q-td :props="props" class="q-gutter-xs" v-if="authStore.hasAnyRole(['admin', 'manager', 'inventory'])">
           <q-btn
             flat
             round

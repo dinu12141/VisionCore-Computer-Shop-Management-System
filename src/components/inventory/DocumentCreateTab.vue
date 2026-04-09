@@ -247,7 +247,7 @@ const { items, listItems } = useItemsList()
 const { uoms, listUoms } = useUomList()
 
 const authStore = useAuthStore()
-const isAdmin = computed(() => authStore.isAdmin)
+const isAdmin = computed(() => authStore.hasAnyRole(['admin', 'manager', 'inventory']))
 
 const saving = ref(false)
 const posting = ref(false)

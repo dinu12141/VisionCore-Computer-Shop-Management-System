@@ -4,7 +4,7 @@
       title="Inventory Management"
       subtitle="Stock control, documents, and warehouse operations"
     >
-      <template #actions v-if="authStore.isAdmin">
+      <template #actions v-if="authStore.hasAnyRole(['admin', 'manager', 'inventory'])">
         <q-btn
           outline
           color="secondary"

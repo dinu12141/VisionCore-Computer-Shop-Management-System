@@ -35,9 +35,9 @@
       @click="$emit('cancel')"
     />
 
-    <!-- Cancel Posted Doc (Restricted to Admin) -->
+    <!-- Cancel Posted Doc (Restricted to Admin/Manager only) -->
     <q-btn
-      v-if="status === 'posted' && isAdmin"
+      v-if="status === 'posted' && isAdminOrManager"
       outline
       color="negative"
       icon="undo"
@@ -64,7 +64,8 @@ import { useAuthStore } from 'src/stores/auth'
 import { computed } from 'vue'
 
 const auth = useAuthStore()
-const isAdmin = computed(() => auth.isAdmin)
+const isAdmin = computed(() => auth.hasAnyRole(['admin', 'manager', 'inventory']))
+const isAdminOrManager = computed(() => auth.hasAnyRole(['admin', 'manager']))
 
 defineProps({
   status: { type: String, default: '' },

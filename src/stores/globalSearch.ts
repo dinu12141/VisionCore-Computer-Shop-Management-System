@@ -228,7 +228,7 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
       .limit(10)
 
     // Merge both result sets (dedupe by id)
-    const allItemMap = new Map<string, typeof nameCodeItems[0]>()
+    const allItemMap = new Map<string, NonNullable<typeof nameCodeItems>[number]>()
     for (const i of nameCodeItems || []) allItemMap.set(i.id, i)
     for (const i of serialMatchItems || []) if (!allItemMap.has(i.id)) allItemMap.set(i.id, i)
 

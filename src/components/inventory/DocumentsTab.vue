@@ -60,7 +60,7 @@
         <q-tooltip>Generate a Summary Report of all visible documents</q-tooltip>
       </q-btn>
       <q-btn
-        v-if="authStore.isAdmin"
+        v-if="authStore.hasAnyRole(['admin', 'manager', 'inventory'])"
         color="primary"
         icon="add"
         label="New Document"
@@ -146,7 +146,7 @@
                 <q-tooltip>View / Print Report</q-tooltip>
               </q-btn>
               <q-btn
-                v-if="props.row.status === 'draft' && authStore.isAdmin"
+                v-if="props.row.status === 'draft' && authStore.hasAnyRole(['admin', 'manager', 'inventory'])"
                 flat
                 dense
                 round
