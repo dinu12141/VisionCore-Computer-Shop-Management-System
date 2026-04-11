@@ -700,8 +700,11 @@ export function useItemsList() {
   }
 
   async function deleteItem(id: string) {
-    const { error } = await supabase.from('items').delete().eq('id', id)
+    const { data, error } = await supabase.rpc('delete_item_safe', { p_item_id: id })
     if (error) throw error
+    if (data && !data.success) {
+      throw new Error(data.message || 'Failed to delete item')
+    }
     items.value = items.value.filter((i) => i.id !== id)
   }
 
