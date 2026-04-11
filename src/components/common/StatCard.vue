@@ -115,7 +115,11 @@ onMounted(() => animateNumber(parseNumericValue(props.value)))
   border-radius: 18px;
   overflow: hidden;
   padding: 22px;
-  min-height: 152px;
+  min-height: 156px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   cursor: default;
   transition:
     transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
@@ -323,6 +327,12 @@ onMounted(() => animateNumber(parseNumericValue(props.value)))
   text-transform: uppercase;
   letter-spacing: 0.9px;
   line-height: 1.4;
+  min-height: 32px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .stat-icon-wrap {
@@ -344,15 +354,19 @@ onMounted(() => animateNumber(parseNumericValue(props.value)))
 }
 
 .stat-value {
-  font-size: 1.875rem;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   font-family: 'Inter', 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 4px 0;
 }
 
 .stat-prefix {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   margin-right: 4px;
   opacity: 0.75;

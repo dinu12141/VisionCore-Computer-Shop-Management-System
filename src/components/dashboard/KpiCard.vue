@@ -83,7 +83,8 @@ function formatValue(val) {
   position: relative;
   border-radius: 18px;
   padding: 20px;
-  min-height: 128px;
+  min-height: 140px;
+  height: 100%;
   overflow: hidden;
   cursor: default;
   border: 1px solid transparent;
@@ -177,6 +178,12 @@ function formatValue(val) {
   color: rgba(255, 255, 255, 0.72);
   line-height: 1.4;
   max-width: 75%;
+  min-height: 31px; // Ensures title row is always consistent height whether 1 or 2 lines
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .kpi-icon-box {
@@ -253,6 +260,7 @@ function formatValue(val) {
 .kpi-delta-label {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
 }
 
 .kpi-delta-placeholder {

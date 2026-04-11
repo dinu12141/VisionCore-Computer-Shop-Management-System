@@ -121,34 +121,47 @@
         <q-card flat class="border-radius-12 border-light sticky-card">
           <q-card-section>
             <div class="text-subtitle2 text-weight-bold q-mb-sm text-grey-7">SELECT CUSTOMER</div>
-            <q-select
-              v-model="selectedCustomerId"
-              outlined
-              dense
-              use-input
-              input-debounce="300"
-              fill-input
-              hide-selected
-              label="Search Customers..."
-              :options="customerOptions"
-              @filter="filterCustomers"
-              option-label="name"
-              option-value="id"
-              emit-value
-              map-options
-              class="q-mb-md"
-            >
-              <template v-slot:no-option>
-                <q-item clickable @click="openCustomerDialog()">
-                  <q-item-section class="text-primary text-weight-bold"
-                    >+ Add New Customer</q-item-section
-                  >
-                </q-item>
-              </template>
-              <template v-slot:after>
-                <q-btn flat round icon="add" color="primary" @click="openCustomerDialog()" />
-              </template>
-            </q-select>
+            <div class="row q-col-gutter-sm q-mb-md">
+              <div class="col-4">
+                <q-select
+                  v-model="invoiceTitleOption"
+                  :options="['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Rev.', 'Prof.']"
+                  outlined
+                  dense
+                  clearable
+                  label="Title"
+                />
+              </div>
+              <div class="col-8">
+                <q-select
+                  v-model="selectedCustomerId"
+                  outlined
+                  dense
+                  use-input
+                  input-debounce="300"
+                  fill-input
+                  hide-selected
+                  label="Search Customers..."
+                  :options="customerOptions"
+                  @filter="filterCustomers"
+                  option-label="name"
+                  option-value="id"
+                  emit-value
+                  map-options
+                >
+                  <template v-slot:no-option>
+                    <q-item clickable @click="openCustomerDialog()">
+                      <q-item-section class="text-primary text-weight-bold"
+                        >+ Add New Customer</q-item-section
+                      >
+                    </q-item>
+                  </template>
+                  <template v-slot:after>
+                    <q-btn flat round icon="add" color="primary" @click="openCustomerDialog()" />
+                  </template>
+                </q-select>
+              </div>
+            </div>
 
             <q-separator class="q-my-md" />
 
@@ -216,6 +229,7 @@
                   outlined
                   align="right"
                   style="width: 100px"
+                  @wheel.prevent
                   @update:model-value="() => {}"
                 />
               </div>
@@ -264,6 +278,7 @@
                   outlined
                   align="right"
                   style="width: 120px"
+                  @wheel.prevent
                   :bg-color="$q.dark.isActive ? undefined : 'green-1'"
                 />
               </div>
@@ -296,6 +311,20 @@
                 <span>Balance Due</span>
                 <span>{{ formatCurrency(totals.balance) }}</span>
               </div>
+            </div>
+
+            <!-- Notes / Remarks -->
+            <div class="q-mt-md">
+              <q-input
+                v-model="form.notes"
+                label="Remarks / Notes (Optional)"
+                outlined
+                dense
+                type="textarea"
+                rows="2"
+                autogrow
+                :bg-color="$q.dark.isActive ? undefined : 'yellow-1'"
+              />
             </div>
 
             <q-btn
@@ -334,7 +363,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar, date } from 'quasar'
 import { useCustomerStore } from 'src/stores/customerStore'
@@ -343,6 +372,7 @@ import InvoiceItemsTable from 'src/components/billing/InvoiceItemsTable.vue'
 import CustomerDialog from 'src/components/customers/CustomerDialog.vue'
 import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
 import { useAuthStore } from 'src/stores/auth'
+import { supabase } from 'src/boot/supabase'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -355,6 +385,7 @@ const selectedCustomerId = ref(null)
 const customerOptions = ref([])
 const showCustomerDialog = ref(false)
 const editingCustomer = ref(null)
+const invoiceTitleOption = ref(null)
 const currentDate = date.formatDate(Date.now(), 'YYYY-MM-DD')
 
 const showPrintDialog = ref(false)
@@ -362,6 +393,7 @@ const invoiceToPrint = ref(null)
 const isEditMode = ref(false)
 const editId = ref(null)
 const existingInvoiceNo = ref('')
+const pendingServiceJobId = ref(null) // track service job to redirect after print
 
 const walkIn = reactive({
   name: '',
@@ -432,6 +464,7 @@ onMounted(async () => {
       const inv = await invoiceStore.getInvoice(editId.value)
       existingInvoiceNo.value = inv.invoice_no
       selectedCustomerId.value = inv.customer_id
+      invoiceTitleOption.value = inv.customer_snapshot?.title || null
 
       // Map basic form fields
       form.payment_type = inv.payment_type || 'cash'
@@ -514,6 +547,7 @@ onMounted(async () => {
 
         // Build line items from combined repairs + parts list
         const lineItems = (prefill.items || []).map((p) => ({
+          product_id: p.product_id || null, // <-- Fix: Required for stock deduction
           description: p.description || '',
           item_code: p.item_code || '',
           qty: Number(p.qty || 1),
@@ -585,6 +619,7 @@ async function submitInvoice() {
   try {
     const snapshot = selectedCustomerData.value
       ? {
+          title: invoiceTitleOption.value || null,
           name: selectedCustomerData.value.name,
           address: selectedCustomerData.value.address,
           phone: selectedCustomerData.value.phone,
@@ -592,6 +627,7 @@ async function submitInvoice() {
           tax_number: selectedCustomerData.value.tax_number,
         }
       : {
+          title: invoiceTitleOption.value || null,
           name: walkIn.name,
           address: walkIn.address,
           phone: walkIn.phone,
@@ -631,6 +667,7 @@ async function submitInvoice() {
       service_job_id: form.service_job_id,
       invoice_date: form.invoice_date || currentDate,
       customer_po_no: form.customer_po_no || null,
+      notes: form.notes || null,
     }
 
     const invoice = isEditMode.value
@@ -641,6 +678,19 @@ async function submitInvoice() {
       type: 'positive',
       message: isEditMode.value ? 'Invoice updated successfully!' : 'Invoice issued successfully!',
     })
+
+    // If this was a service job invoice, mark the job as paid and redirect after print
+    if (form.is_service_invoice && form.service_job_id) {
+      pendingServiceJobId.value = form.service_job_id
+      try {
+        await supabase
+          .from('service_jobs')
+          .update({ payment_status: 'paid', status: 'delivered' })
+          .eq('id', form.service_job_id)
+      } catch (e) {
+        console.warn('[BillingPage] Failed to mark service job as paid:', e)
+      }
+    }
 
     // Open Print Preview Dialog In-page
     invoiceToPrint.value = invoice
@@ -678,6 +728,14 @@ async function saveDraft() {
   form.status = 'draft'
   await submitInvoice()
 }
+
+// ── After printing a service job invoice, redirect to completed jobs ──
+watch(showPrintDialog, (isOpen) => {
+  if (!isOpen && pendingServiceJobId.value) {
+    pendingServiceJobId.value = null
+    router.push('/services/completed')
+  }
+})
 
 function formatCurrency(val) {
   return 'LKR ' + Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from 'src/boot/supabase'
-import { useQuasar } from 'quasar'
+import { Notify } from 'quasar'
 
 export const useNotificationStore = defineStore('notifications', () => {
   const notifications = ref([])
@@ -20,6 +20,20 @@ export const useNotificationStore = defineStore('notifications', () => {
           n.urgency === notification.urgency,
       )
       if (exists) return false
+    } else if (notification.item_id && notification.warehouse_id) {
+      const existingIdx = notifications.value.findIndex(
+        (n) =>
+          n.item_id === notification.item_id &&
+          n.warehouse_id === notification.warehouse_id &&
+          n.type === notification.type
+      )
+      if (existingIdx !== -1) {
+        const n = notifications.value[existingIdx]
+        // If the exact same status/urgency, ignore
+        if (n.urgency === notification.urgency && n.message === notification.message) return false
+        // Replace existing to bubble it up
+        notifications.value.splice(existingIdx, 1)
+      }
     }
     notifications.value.unshift({
       id: Date.now() + Math.random(),
@@ -58,8 +72,6 @@ export const useNotificationStore = defineStore('notifications', () => {
       if (error) throw error
 
       if (!data || data.length === 0) return
-
-      const $q = useQuasar()
 
       const parseLocalDate = (dateStr) => {
         if (!dateStr) return new Date(0)
@@ -107,16 +119,14 @@ export const useNotificationStore = defineStore('notifications', () => {
 
         // Show a visible toast popup for overdue, today & tomorrow only IF it's a new notification
         if (isNew && daysLeft <= 1) {
-          $q.notify({
+          Notify.create({
             type: daysLeft <= 0 ? 'negative' : 'warning',
             icon: 'payments',
             message: title,
             caption: `${custName} — LKR ${balance.toLocaleString()}`,
             position: 'top-right',
             timeout: daysLeft <= 0 ? 0 : 8000, // overdue/today = persistent until closed
-            actions: Object.keys($q).length
-              ? [{ label: 'Dismiss', color: 'white', handler: () => {} }]
-              : undefined,
+            actions: [{ label: 'Dismiss', color: 'white', handler: () => {} }],
             progress: daysLeft === 1,
             color: daysLeft <= 0 ? 'negative' : 'orange-9',
             textColor: 'white',
@@ -128,12 +138,90 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
+  // ── Inventory Low Stock Alerts ─────────────────────────────────────────────
+  async function checkLowStockAlerts(companyId, itemId = null, warehouseId = null) {
+    if (!companyId) return
+    try {
+      let query = supabase
+        .from('v_low_stock_alerts')
+        .select(`item_id, item_name, item_code, qty_on_hand, reorder_level, stock_status, warehouse_name, warehouse_id`)
+        .eq('company_id', companyId)
+
+      if (itemId) query = query.eq('item_id', itemId)
+      if (warehouseId) query = query.eq('warehouse_id', warehouseId)
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        data.forEach(item => {
+           const title = item.stock_status === 'out_of_stock' ? `🔴 OUT OF STOCK: ${item.item_code}` : `🟠 LOW STOCK: ${item.item_code}`
+           const message = `${item.item_name} at ${item.warehouse_name} is down to ${item.qty_on_hand} (Reorder level: ${item.reorder_level})`
+           
+           const isNew = addNotification({
+             type: 'inventory',
+             title,
+             message,
+             item_id: item.item_id,
+             warehouse_id: item.warehouse_id,
+             warehouse: item.warehouse_name,
+             urgency: item.stock_status === 'out_of_stock' ? 'critical' : 'high'
+           })
+
+           // Only show popup for individual item updates or out_of_stock on initial load, to prevent alert spam
+           if (isNew && (itemId || item.stock_status === 'out_of_stock')) {
+              Notify.create({
+                 type: item.stock_status === 'out_of_stock' ? 'negative' : 'warning',
+                 icon: 'inventory_2',
+                 message: title,
+                 caption: message,
+                 position: 'top-right',
+                 timeout: item.stock_status === 'out_of_stock' ? 0 : 8000,
+                 actions: [{ label: 'Dismiss', color: 'white', handler: () => {} }],
+                 color: item.stock_status === 'out_of_stock' ? 'negative' : 'orange-9',
+                 textColor: 'white'
+              })
+           }
+        })
+      } else if (itemId && warehouseId) {
+        // If a specific item was checked and is no longer low stock, clear its alert
+        const idx = notifications.value.findIndex(n => n.item_id === itemId && n.warehouse_id === warehouseId && n.type === 'inventory')
+        if (idx !== -1) notifications.value.splice(idx, 1)
+      }
+    } catch (err) {
+      console.error('[NotificationStore] checkLowStockAlerts error:', err)
+    }
+  }
+
   // ── Start polling (runs on login, refreshes every 30 min) ────────────────
+  let _stockSubscription = null
+
   function startPolling(companyId) {
     if (!companyId) return
     // Run immediately
     checkUpcomingCollections(companyId)
-    // Then every 30 minutes
+    checkLowStockAlerts(companyId) // Initial bulk check
+
+    // Realtime stock tracking for exact instant notifications
+    if (_stockSubscription) supabase.removeChannel(_stockSubscription)
+    _stockSubscription = supabase
+      .channel('stock_on_hand_alerts')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_on_hand', filter: `company_id=eq.${companyId}` },
+        (payload) => {
+          const itemId = payload.new?.item_id || payload.old?.item_id
+          const warehouseId = payload.new?.warehouse_id || payload.old?.warehouse_id
+          if (itemId && warehouseId) {
+            // Delay slightly so triggers or related commits finish
+            setTimeout(() => checkLowStockAlerts(companyId, itemId, warehouseId), 500)
+          }
+        }
+      )
+      .subscribe()
+
+    // Then interval checks
     if (_pollTimer) clearInterval(_pollTimer)
     _pollTimer = setInterval(
       () => {
@@ -147,6 +235,10 @@ export const useNotificationStore = defineStore('notifications', () => {
     if (_pollTimer) {
       clearInterval(_pollTimer)
       _pollTimer = null
+    }
+    if (_stockSubscription) {
+      supabase.removeChannel(_stockSubscription)
+      _stockSubscription = null
     }
   }
 

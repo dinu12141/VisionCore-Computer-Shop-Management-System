@@ -5,29 +5,35 @@
       <div class="col-12 col-sm-6 col-md-3">
         <StatCard
           title="Total Products"
-          :value="String(stats.totalItems)"
+          :value="stats.totalItems"
           icon="inventory_2"
-          color="teal"
+          gradient="primary"
         />
       </div>
       <div class="col-12 col-sm-6 col-md-3">
         <StatCard
           title="Total Stock Value"
-          :value="formatCurrency(stats.totalStockValue)"
+          :value="stats.totalStockValue"
+          prefix="LKR"
           icon="account_balance_wallet"
-          color="green"
+          gradient="success"
         />
       </div>
       <div class="col-12 col-sm-6 col-md-3">
         <StatCard
           title="Low Stock Items"
-          :value="String(stats.lowStockCount)"
+          :value="stats.lowStockCount"
           icon="warning"
-          color="orange"
+          gradient="warning"
         />
       </div>
       <div class="col-12 col-sm-6 col-md-3">
-        <StatCard title="Today's GRN" :value="String(stats.todayGRN)" icon="archive" color="blue" />
+        <StatCard 
+          title="Today's GRN" 
+          :value="stats.todayGRN" 
+          icon="archive" 
+          gradient="info" 
+        />
       </div>
     </div>
 
@@ -199,9 +205,7 @@ function getWhColor(type) {
   return map[type] || 'grey'
 }
 
-function formatCurrency(val) {
-  return 'LKR ' + Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })
-}
+// formatCurrency removed as we now use prefix="LKR" and let component handle it
 
 function formatCurrencyShort(val) {
   if (val >= 1000000) return 'LKR ' + (val / 1000000).toFixed(1) + 'M'

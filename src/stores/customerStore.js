@@ -64,6 +64,7 @@ export const useCustomerStore = defineStore('customers', () => {
     // Let the database default (gen_random_uuid) and triggers handle code generation.
     const payload = {
       company_id: companyId,
+      title: customerData.title || null,
       name: customerData.name,
       phone: customerData.phone || null,
       email: customerData.email || null,
@@ -72,6 +73,7 @@ export const useCustomerStore = defineStore('customers', () => {
       category_id: customerData.category_id || null,
       status: customerData.status || 'active',
       notes: customerData.notes || null,
+      tax_number: customerData.tax_number || null,
     }
 
     const { data, error } = await supabase.from('customers').insert(payload).select().single()
@@ -84,7 +86,7 @@ export const useCustomerStore = defineStore('customers', () => {
   async function updateCustomer(id, updates) {
     // Only send columns that exist in the customers table
     const cleanUpdates = {}
-    const validCols = ['name', 'phone', 'email', 'address', 'nic_brn', 'category_id', 'status', 'notes']
+    const validCols = ['title', 'name', 'phone', 'email', 'address', 'nic_brn', 'category_id', 'status', 'notes', 'tax_number']
     for (const col of validCols) {
       if (updates[col] !== undefined) cleanUpdates[col] = updates[col]
     }

@@ -1,6 +1,6 @@
 export const renderInvoiceHTML = (invoice, template = {}) => {
   const {
-    company_name = 'Vison Computers',
+    company_name = 'Vision Computers',
     vat_no = '117543862-7000',
     address = 'No.36, Bibila Road, Monaragala.',
     phones = ['076-5554567', '070-4008480'],
@@ -12,18 +12,8 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
   const formatDate = (d) => {
     if (!d) return ''
     const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ]
     if (typeof d === 'string' && d.includes('-') && !d.includes('T')) {
       const parts = d.split('-')
@@ -32,86 +22,68 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
       }
     }
     const dateObj = new Date(d)
-    return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`
+    return `${dateObj.getDate().toString().padStart(2, '0')} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`
   }
 
   const formatCurrency = (val) => {
-    return (
-      'LKR ' +
-      Number(val || 0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    )
+    return 'LKR ' + Number(val || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
   }
 
   const items = invoice.items || []
-  const itemsHtml = items
-    .map((item, index) => {
-      const sn = item.serial_number || item.serialNumber
-      const warranty = item.warranty
-      let rowHtml = `
-      <tr class="${index % 2 === 1 ? 'zebra' : ''}">
-        <td class="col-qty text-center">${item.qty}</td>
-        <td class="col-desc">
+  const itemsHtml = items.map((item) => {
+    const sn = item.serial_number || item.serialNumber
+    const warranty = item.warranty
+    return `
+      <tr>
+        <td class="text-center">${item.qty}</td>
+        <td>
           <div class="main-desc">${item.description}</div>
           <div class="item-meta">
             ${sn ? `<span>SN: ${sn}</span>` : ''}
-            ${warranty ? `<span style="margin-left: 12px;">Warranty: ${warranty}</span>` : ''}
+            ${warranty ? `<span style="margin-left: 10px;">Warranty: ${warranty}</span>` : ''}
           </div>
         </td>
-        <td class="col-uprice text-right">${formatCurrency(item.unit_price)}</td>
-        <td class="col-total text-right">${formatCurrency(item.line_total)}</td>
+        <td class="text-right">${formatCurrency(item.unit_price)}</td>
+        <td class="text-right font-bold">${formatCurrency(item.line_total)}</td>
       </tr>`
-      return rowHtml
-    })
-    .join('')
+  }).join('')
 
-  // Reduced empty rows to ensure better natural flow for multi-page invoices
-  const emptyRowsCount = Math.max(0, 10 - items.length)
-  const emptyRowsHtml = Array(emptyRowsCount)
-    .fill(0)
-    .map(
-      (_, i) => `
-    <tr class="${(i + items.length) % 2 === 1 ? 'zebra' : ''}">
-      <td class="col-qty"></td>
-      <td class="col-desc"></td>
-      <td class="col-uprice"></td>
-      <td class="col-total"></td>
+  // Optional empty rows to push totals down slightly if there are very few items
+  const emptyRowsCount = Math.max(0, 5 - items.length)
+  const emptyRowsHtml = Array(emptyRowsCount).fill(0).map(() => `
+    <tr class="empty-row">
+      <td></td><td></td><td></td><td></td>
     </tr>
-  `,
-    )
-    .join('')
+  `).join('')
 
-  // --- VAT Invoice: build totals HTML ---
+  // Totals calculations
   const isVat = !!invoice.is_vat_invoice
   const invoiceTitle = isVat ? 'TAX INVOICE' : 'INVOICE'
 
   let totalsHtml = ''
   if (isVat) {
-    const totalBeforeVat = Number(invoice.total_before_vat || 0)
-    const vatAmount = Number(invoice.vat_amount || invoice.tax || 0)
-    const totalWithVat = Number(invoice.total || 0)
-
     totalsHtml = `
-          <div class="total-line">
-            <span class="total-label">TOTAL (WITHOUT VAT)</span>
-            <span class="total-val">${formatCurrency(totalBeforeVat)}</span>
-          </div>
-          <div class="total-line" style="color: #ed1c24;">
-            <span class="total-label">VAT (18%)</span>
-            <span class="total-val">${formatCurrency(vatAmount)}</span>
-          </div>
-          <div class="total-line" style="border-top: 2px solid #000; padding-top: 4px; margin-top: 2px;">
-            <span class="total-label">TOTAL (WITH VAT)</span>
-            <span class="total-val">${formatCurrency(totalWithVat)}</span>
-          </div>`
+      <div class="total-line">
+        <span class="total-label">Subtotal</span>
+        <span class="total-val">${formatCurrency(invoice.total_before_vat || 0)}</span>
+      </div>
+      <div class="total-line text-red">
+        <span class="total-label">VAT (18%)</span>
+        <span class="total-val">${formatCurrency(invoice.vat_amount || invoice.tax || 0)}</span>
+      </div>
+      <div class="total-line grand-total">
+        <span class="total-label">TOTAL</span>
+        <span class="total-val">${formatCurrency(invoice.total || 0)}</span>
+      </div>`
   } else {
     totalsHtml = `
-          <div class="total-line">
-            <span class="total-label">TOTAL</span>
-            <span class="total-val">${formatCurrency(invoice.total)}</span>
-          </div>`
+      <div class="total-line grand-total">
+        <span class="total-label">TOTAL</span>
+        <span class="total-val">${formatCurrency(invoice.total)}</span>
+      </div>`
   }
 
   return `
@@ -119,18 +91,16 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title> </title>
+      <title>Invoice - ${invoice.invoice_no}</title>
       <style>
         @page {
           size: A4;
           margin: 0;
         }
 
-        * { box-sizing: border-box; }
-
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          color: #000;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          color: #1a1a1a;
           margin: 0;
           padding: 0;
           background: #fff;
@@ -139,177 +109,281 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         }
 
         .page {
-          width: 100%;
-          min-height: 0;
-          margin: 0;
-          background: #fff;
-          padding: 0;
+          width: 210mm;
+          min-height: 296mm; /* Almost full A4 height to force 1 page usually */
+          margin: 0 auto;
+          padding: 15mm 20mm;
+          box-sizing: border-box;
+          position: relative;
+        }
+
+        /* Helpers */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: 700; }
+        .text-red { color: #ed1c24 !important; }
+
+        /* Header section */
+        .title-bar {
+          font-size: 36px;
+          font-weight: 900;
+          color: #ed1c24;
+          letter-spacing: 2px;
+          margin-bottom: 20px;
+          text-transform: uppercase;
+        }
+
+        .header-grid {
           display: flex;
-          flex-direction: column;
-          color: #000 !important;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 30px;
         }
 
-        @media print {
-          /* 297mm A4 height - 12mm top spacer - 12mm bottom spacer = 273mm usable per page */
-          .page { min-height: 273mm; }
-          .footer { margin-top: auto; }
+        .company-info {
+          font-size: 13px;
+          line-height: 1.5;
+          padding-left: 15px;
+          border-left: 4px solid #ed1c24;
         }
 
-        @media screen {
-          body { background: #e0e0e0; padding: 20px 0; }
-          .page {
-            width: 210mm;
-            min-height: 277mm;
-            margin: 0 auto;
-            padding: 12mm 15mm;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-          }
+        .company-info .c-name {
+          font-size: 20px;
+          font-weight: 800;
+          color: #000;
+          margin-bottom: 4px;
         }
 
-        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .invoice-box { border: 2.5px solid #ed1c24; padding: 6px 20px; margin-top: 10px; }
-        .invoice-box h1 { color: #ed1c24 !important; font-size: 32px; margin: 0; font-weight: 800; letter-spacing: 2px; line-height: 1; }
+        .logo-container {
+          text-align: right;
+        }
+        .logo-container img {
+          max-height: 80px;
+          max-width: 160px;
+          object-fit: contain;
+        }
 
-        .logo-box { text-align: center; width: 140px; }
-        .logo-box img { width: 100%; height: auto; }
+        /* Meta and Customer Grid */
+        .info-grid {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 30px;
+          font-size: 14px;
+          line-height: 1.6;
+        }
 
-        .company-info-row { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; line-height: 1.3; }
-        .company-name { font-size: 19px; font-weight: bold; margin-bottom: 4px; }
-        .red-accent-bar { border-left: 5px solid #ed1c24; padding-left: 12px; }
+        .customer-card {
+          width: 50%;
+        }
+        .bill-to-label {
+          font-size: 12px;
+          color: #666;
+          text-transform: uppercase;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+        .customer-name {
+          font-size: 16px;
+          font-weight: 800;
+        }
 
-        .meta-info-table { width: auto; align-self: flex-start; }
-        .meta-item { display: flex; justify-content: flex-end; margin-bottom: 5px; font-size: 15px; }
-        .meta-label { font-weight: bold; width: 110px; text-align: left; }
-        .meta-val { width: 150px; text-align: left; font-weight: 500; }
+        .meta-card {
+          width: 40%;
+          border: 1px solid #ddd;
+          background: #fafafa;
+          border-radius: 6px;
+          padding: 10px 15px;
+        }
+        .meta-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 4px;
+        }
+        .meta-row:last-child {
+          margin-bottom: 0;
+        }
+        .meta-label {
+          color: #555;
+          font-weight: 600;
+        }
+        .meta-value {
+          font-weight: 700;
+          text-align: right;
+        }
 
-        .customer-section { margin-bottom: 20px; font-size: 15.5px; line-height: 1.4; font-weight: 600; padding-left: 2px; }
-
+        /* Items Table */
         .table-container {
-          width: 100%;
-          margin-bottom: 5px;
+          margin-bottom: 25px;
         }
-
-        /* Generic table styles only for items-table, not print-wrapper */
-
-        /* ── Print-wrapper table: repeating thead/tfoot create top/bottom margins on every page ── */
-        .print-wrapper { width: 100%; border: none; border-collapse: collapse; }
-        .print-wrapper > thead > tr > td,
-        .print-wrapper > tfoot > tr > td { height: 12mm; border: none; padding: 0; }
-        .print-wrapper > tbody > tr > td { border: none; padding: 0 15mm; }
-
-        /* ── Invoice items table ── */
-        .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1.5px solid #000; margin-bottom: 0; }
-        thead { display: table-header-group; }
-        tr { page-break-inside: avoid; }
-
-        .items-table th {
-          background-color: #ed1c24 !important;
-          color: #fff !important;
-          text-align: center;
-          padding: 10px 5px;
-          font-size: 15px;
+        table.items {
+          width: 100%;
+          border-collapse: collapse;
           border: 1px solid #000;
         }
-
-        .items-table td {
-          padding: 10px 10px;
+        table.items th {
+          background-color: #ed1c24 !important;
+          color: #ffffff !important;
+          padding: 12px 10px;
           font-size: 14px;
-          border-left: 1.2px solid #000;
-          border-right: 1.2px solid #000;
-          vertical-align: middle;
-          min-height: 40px;
+          text-transform: uppercase;
+          border: 1px solid #000;
+        }
+        table.items td {
+          padding: 12px 10px;
+          font-size: 13px;
+          border: 1px solid #000;
+          vertical-align: top;
+        }
+        table.items tr.empty-row td {
+          color: transparent;
+          border-bottom: 1px solid #eee; /* Light inner borders for empty rows */
+          border-left: 1px solid #000;
+          border-right: 1px solid #000;
+          height: 35px;
+        }
+        
+        /* Keep outer borders strong for empty rows */
+        table.items tr:last-child td {
+          border-bottom: 1px solid #000;
         }
 
-        tr.zebra { background-color: #f9f9f9 !important; }
+        .main-desc { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+        .item-meta { font-size: 11px; color: #555; }
 
-        .col-qty { width: 50px; }
-        .col-desc { text-align: left; border-right: none !important; }
-        .main-desc { font-weight: 700; font-size: 15px; }
-        .item-meta { font-size: 12px; color: #333; margin-top: 3px; font-weight: 600; }
-        .col-uprice { width: 140px; text-align: right; }
-        .col-total { width: 150px; text-align: right; }
+        /* Column widths */
+        th:nth-child(1) { width: 8%; }
+        th:nth-child(2) { width: 52%; text-align: left; }
+        th:nth-child(3) { width: 20%; text-align: right; }
+        th:nth-child(4) { width: 20%; text-align: right; }
 
-        .totals-container {
-          margin-top: 0;
-          width: 330px;
-          align-self: flex-end;
-          page-break-inside: avoid;
-          border: 1.5px solid #000;
-          border-top: none;
+        /* Summary / Totals block */
+        .summary-wrapper {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 40px;
+        }
+        .totals-box {
+          width: 40%;
+          border: 1px solid #000;
+          border-radius: 4px;
           padding: 10px 15px;
-          background-color: #fdfdfd;
+          background-color: #fcfcfc;
         }
-
         .total-line {
           display: flex;
           justify-content: space-between;
-          padding: 3px 0;
-          font-weight: bold;
-          font-size: 15px;
-        }
-
-        .total-label { text-align: left; flex: 1; }
-        .total-val { width: 140px; text-align: right; }
-
-        .footer {
-          margin-top: 15px;
-          padding-top: 5px;
+          padding: 6px 0;
           font-size: 14px;
-          font-weight: bold;
-          width: 100%;
-          page-break-inside: avoid;
+          font-weight: 700;
+        }
+        .grand-total {
+          border-top: 2px solid #000;
+          margin-top: 4px;
+          padding-top: 8px;
+          font-size: 16px;
+        }
+        .balance-line {
+          background-color: #f0f0f0;
+          margin: 5px -15px -10px -15px;
+          padding: 10px 15px;
+          border-top: 1px solid #ccc;
+          border-bottom-left-radius: 4px;
+          border-bottom-right-radius: 4px;
         }
 
-        .thank-you { margin-top: 8px; }
+        /* Remarks */
+        .remarks-section {
+          margin-top: 15px;
+          margin-bottom: 20px;
+          padding: 10px 14px;
+          border: 1px dashed #999;
+          border-radius: 4px;
+          background-color: #fffde7;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .remarks-label {
+          font-weight: 700;
+          color: #333;
+          margin-right: 6px;
+        }
+        .remarks-text {
+          color: #555;
+        }
 
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
+        /* Footer */
+        .footer {
+          position: absolute;
+          bottom: 15mm;
+          left: 20mm;
+          right: 20mm;
+          border-top: 1px solid #000;
+          padding-top: 15px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .footer-note { margin-bottom: 5px; }
+
+        @media screen {
+          body { background: #e0e0e0; padding: 20px 0; }
+          .page { background: #fff; box-shadow: 0 0 15px rgba(0,0,0,0.15); margin-bottom: 20px; }
+        }
       </style>
     </head>
     <body>
-      <!-- Print-wrapper table: thead/tfoot repeat on every page = proper margins even with @page margin:0 -->
-      <table class="print-wrapper">
-        <thead><tr><td></td></tr></thead>
-        <tfoot><tr><td></td></tr></tfoot>
-        <tbody><tr><td>
-
       <div class="page">
-        <div class="header-top">
-          <div class="invoice-box"><h1>${invoiceTitle}</h1></div>
-          <div class="logo-box">
-             <img src="${logoUrl}" alt="Logo">
-          </div>
-        </div>
+        <!-- TOP: Title -->
+        <div class="title-bar">${invoiceTitle}</div>
 
-        <div class="company-info-row">
-          <div class="red-accent-bar">
-            <div class="company-name">${company_name}</div>
-            <div>VAT NO- ${vat_no}</div>
+        <!-- HEADER: Company & Logo -->
+        <div class="header-grid">
+          <div class="company-info">
+            <div class="c-name">${company_name}</div>
+            <div>VAT NO: ${vat_no}</div>
             <div>${address}</div>
-            ${phones.map((p) => `<div>${p}</div>`).join('')}
+            ${phones.map(p => `<div>${p}</div>`).join('')}
           </div>
-          <div class="meta-info-table">
-            <div class="meta-item"><span class="meta-label">Date:</span> <span class="meta-val">${formatDate(invoice.invoice_date || invoice.created_at || new Date())}</span></div>
-            <div class="meta-item"><span class="meta-label">Invoice No.:</span> <span class="meta-val">${invoice.invoice_no || ''}</span></div>
-            ${invoice.customer_po_no ? `<div class="meta-item"><span class="meta-label">Cust. PO No:</span> <span class="meta-val">${invoice.customer_po_no}</span></div>` : ''}
+          <div class="logo-container">
+             <img src="${logoUrl}" alt="Company Logo" onerror="this.style.display='none'">
           </div>
         </div>
 
-        <div class="customer-section">
-          ${isVat && invoice.customer_snapshot?.tax_number ? `<div>TAX NO: ${invoice.customer_snapshot.tax_number}</div>` : ''}
-          <div>Mr. ${invoice.customer_snapshot?.name || 'Walk-in Customer'}</div>
-          <div>${invoice.customer_snapshot?.address || ''}</div>
-          <div>${invoice.customer_snapshot?.phone || ''}</div>
+        <!-- META: Customer & Invoice Details -->
+        <div class="info-grid">
+          <div class="customer-card">
+            <div class="bill-to-label">Billed To:</div>
+            ${invoice.customer_snapshot?.tax_number ? `<div class="font-bold text-red">TAX NO: ${invoice.customer_snapshot.tax_number}</div>` : ''}
+            <div class="customer-name">${invoice.customer_snapshot?.name ? (invoice.customer_snapshot.name.toLowerCase() === 'walk-in' || invoice.customer_snapshot.name.toLowerCase() === 'walk in' ? invoice.customer_snapshot.name : (invoice.customer_snapshot.title ? invoice.customer_snapshot.title + ' ' : '') + invoice.customer_snapshot.name) : 'Walk-in Customer'}</div>
+            <div>${invoice.customer_snapshot?.address || ''}</div>
+            <div>${invoice.customer_snapshot?.phone || ''}</div>
+          </div>
+          
+          <div class="meta-card">
+            <div class="meta-row">
+              <span class="meta-label">Invoice No:</span>
+              <span class="meta-value">${invoice.invoice_no || '-'}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Date:</span>
+              <span class="meta-value">${formatDate(invoice.invoice_date || invoice.created_at || new Date())}</span>
+            </div>
+            ${invoice.customer_po_no ? `
+            <div class="meta-row">
+              <span class="meta-label">Cust. PO:</span>
+              <span class="meta-value">${invoice.customer_po_no}</span>
+            </div>` : ''}
+          </div>
         </div>
 
+        <!-- TABLE -->
         <div class="table-container">
-          <table class="items-table">
+          <table class="items">
             <thead>
               <tr>
-                <th class="col-qty">Qty</th>
+                <th>Qty</th>
                 <th>Description / Serial & Warranty</th>
-                <th class="col-uprice">Unit Price</th>
-                <th class="col-total">TOTAL</th>
+                <th>Unit Price</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -319,26 +393,35 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           </table>
         </div>
 
-        <div class="totals-container">
-          ${totalsHtml}
-          <div class="total-line">
-            <span class="total-label">PAID AMOUNT</span>
-            <span class="total-val">${formatCurrency(invoice.paid_amount || invoice.paid_total)}</span>
-          </div>
-          <div class="total-line">
-            <span class="total-label">BALANCE (DUE)</span>
-            <span class="total-val">${formatCurrency(invoice.balance)}</span>
+        <!-- TOTALS -->
+        <div class="summary-wrapper">
+          <div class="totals-box">
+            ${totalsHtml}
+            <div class="total-line" style="margin-top: 5px;">
+              <span class="total-label">PAID AMOUNT</span>
+              <span class="total-val">${formatCurrency(invoice.paid_amount || invoice.paid_total || 0)}</span>
+            </div>
+            <div class="total-line balance-line">
+              <span class="total-label">BALANCE DUE</span>
+              <span class="total-val text-red">${formatCurrency(invoice.balance || 0)}</span>
+            </div>
           </div>
         </div>
 
+        ${invoice.notes ? `
+        <!-- REMARKS -->
+        <div class="remarks-section">
+          <span class="remarks-label">Remarks:</span>
+          <span class="remarks-text">${invoice.notes}</span>
+        </div>
+        ` : ''}
+
+        <!-- FOOTER -->
         <div class="footer">
-          <div>${footer_note}</div>
-          <div class="thank-you">Thank you</div>
+          <div class="footer-note">${footer_note}</div>
+          <div class="thank-you">Thank You for your Business!</div>
         </div>
       </div>
-
-        </td></tr></tbody>
-      </table>
     </body>
     </html>
   `

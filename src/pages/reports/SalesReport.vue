@@ -65,16 +65,16 @@
     <!-- ── KPI Summary Cards ───────────────────────────────────────────── -->
     <div class="row q-col-gutter-md q-mb-lg">
       <div class="col-6 col-md-3" v-for="kpi in kpiCards" :key="kpi.label">
-        <q-card flat bordered class="kpi-card q-pa-lg">
-          <div class="row items-start no-wrap">
+        <q-card flat bordered class="kpi-card q-pa-md" style="height: 100%; display: flex; align-items: center;">
+          <div class="row items-center no-wrap full-width">
             <q-avatar
               :color="kpi.avatarBg"
               :text-color="kpi.color"
               :icon="kpi.icon"
-              size="44px"
-              class="q-mr-md"
+              size="40px"
+              class="q-mr-sm"
             />
-            <div class="col">
+            <div class="col" style="min-width: 0;">
               <div class="kpi-label">{{ kpi.label }}</div>
               <div class="kpi-value" :class="`text-${kpi.color}`">{{ kpi.value }}</div>
               <div v-if="kpi.sub" class="kpi-sub">{{ kpi.sub }}</div>
@@ -304,9 +304,9 @@
           <!-- Service KPIs -->
           <div class="row q-col-gutter-md q-mb-lg">
             <div class="col-6 col-md-3" v-for="kpi in serviceKpis" :key="kpi.label">
-              <q-card flat bordered class="q-pa-md text-center">
-                <div class="text-caption text-grey-6 q-mb-xs">{{ kpi.label }}</div>
-                <div class="text-h6 text-weight-bold" :class="`text-${kpi.color}`">
+              <q-card flat bordered class="q-pa-md text-center" style="height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                <div class="text-caption text-grey-6 q-mb-xs" style="line-height: 1.2;">{{ kpi.label }}</div>
+                <div class="text-weight-bold" :class="`text-${kpi.color}`" style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word;">
                   {{ kpi.value }}
                 </div>
               </q-card>
@@ -768,18 +768,27 @@ watch(
 }
 
 .kpi-label {
-  font-size: 10.5px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.5px;
   color: #9ca3af;
   font-weight: 600;
   margin-bottom: 2px;
+  min-height: 26px;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .kpi-value {
-  font-size: 1.4rem;
+  font-size: clamp(0.95rem, 1.5vw, 1.25rem);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.2;
+  word-break: break-word;
+  letter-spacing: -0.01em;
 }
 
 .kpi-sub {

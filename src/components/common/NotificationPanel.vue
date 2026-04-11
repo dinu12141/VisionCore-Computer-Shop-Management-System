@@ -103,6 +103,8 @@ function getIcon(type, urgency) {
   if (type === 'payment') {
     return urgency === 'critical' ? 'alarm' : urgency === 'high' ? 'schedule' : 'payments'
   }
+  if (type === 'inventory') return 'inventory_2'
+  
   const map = { order: 'restaurant_menu', kitchen: 'kitchen', system: 'info' }
   return map[type] || 'notifications'
 }
@@ -111,6 +113,10 @@ function getColor(type, urgency) {
   if (type === 'payment') {
     return urgency === 'critical' ? 'negative' : urgency === 'high' ? 'warning' : 'orange'
   }
+  if (type === 'inventory') {
+    return urgency === 'critical' ? 'negative' : 'warning'
+  }
+
   const map = { order: 'primary', kitchen: 'orange', system: 'grey' }
   return map[type] || 'blue'
 }

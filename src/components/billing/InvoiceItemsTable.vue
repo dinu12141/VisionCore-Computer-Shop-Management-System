@@ -90,6 +90,7 @@
             dense
             outlined
             style="width: 80px"
+            @wheel.prevent
             @update:model-value="calculateLine(props.row)"
           />
         </q-td>
@@ -104,6 +105,7 @@
             outlined
             prefix="Rs."
             style="width: 120px"
+            @wheel.prevent
             @update:model-value="calculateLine(props.row)"
           />
         </q-td>
@@ -117,6 +119,7 @@
             dense
             outlined
             style="width: 90px"
+            @wheel.prevent
             @update:model-value="calculateLine(props.row)"
           />
         </q-td>

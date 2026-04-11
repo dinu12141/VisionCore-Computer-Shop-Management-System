@@ -150,17 +150,7 @@
         </template>
         <template v-slot:body-cell-actions="props">
           <q-td :props="props">
-            <q-btn
-              flat
-              dense
-              round
-              icon="file_download"
-              color="indigo"
-              size="sm"
-              @click="reDownload(props.row)"
-            >
-              <q-tooltip>Re-download this backup</q-tooltip>
-            </q-btn>
+            <!-- Redownload removed since data is no longer stored locally -->
             <q-btn
               flat
               dense
@@ -356,15 +346,10 @@ async function fetchAllData() {
     progressValue.value = done / BACKUP_TABLES.length
 
     try {
-      let query = supabase.from(table).select('*')
-      // Filter by company_id where applicable
-      if (companyId && !['companies'].includes(table)) {
-        const { data: sample } = await supabase.from(table).select('company_id').limit(1)
-        if (sample?.[0]?.company_id !== undefined) {
-          query = query.eq('company_id', companyId)
-        }
-      }
-      const { data, error } = await query
+      // RLS (Row Level Security) automatically filters the data so the user
+      // only receives data belonging to their company. No need to pass company_id.
+      const { data, error } = await supabase.from(table).select('*')
+      
       if (error) {
         console.warn(`[backup] ${table} skipped:`, error.message)
         backup.tables[table] = []
@@ -405,15 +390,14 @@ async function runBackup(silent = false) {
     // Download
     saveAs(blob, filename)
 
-    // Save to history
+    // Save to history metadata only (prevent LocalStorage QuotaExceededError)
     saveToHistory({
       id: Date.now().toString(),
       date: now(),
       tables: tableCount,
       records: totalRecords,
       size: blob.size,
-      filename,
-      data: json, // store for re-download
+      filename
     })
 
     // Mark daily auto-backup done
@@ -442,17 +426,7 @@ async function runBackup(silent = false) {
   }
 }
 
-// ── Re-download from history ──────────────────────────────────────────────────
-function reDownload(entry) {
-  if (!entry.data) {
-    $q.notify({ type: 'warning', message: 'Backup data not stored locally. Run a new backup.' })
-    return
-  }
-  const blob = new Blob([entry.data], { type: 'application/json' })
-  saveAs(blob, entry.filename || `VisionCore_Backup.json`)
-}
-
-// ── Confirm Import ────────────────────────────────────────────────────────────
+// ── Re-download removed ──────────────────────────────────────────────────
 function confirmImport() {
   $q.dialog({
     title: '⚠️ Confirm Restore',

@@ -50,9 +50,10 @@
     <div class="col-12 col-md-4">
       <StatCard
         title="Revenue"
-        :value="formatCurrency(financeStore.overview.totalRevenue)"
+        :value="financeStore.overview.totalRevenue"
+        prefix="LKR"
         icon="attach_money"
-        color="primary"
+        gradient="primary"
         :loading="financeStore.loading"
       />
     </div>
@@ -61,9 +62,10 @@
     <div class="col-12 col-md-4">
       <StatCard
         title="COGS"
-        :value="formatCurrency(financeStore.overview.totalCogs)"
+        :value="financeStore.overview.totalCogs"
+        prefix="LKR"
         icon="inventory"
-        color="orange"
+        gradient="warning"
         :loading="financeStore.loading"
       />
     </div>
@@ -72,9 +74,10 @@
     <div class="col-12 col-md-4">
       <StatCard
         title="Gross Profit"
-        :value="formatCurrency(financeStore.overview.totalProfit)"
+        :value="financeStore.overview.totalProfit"
+        prefix="LKR"
         icon="trending_up"
-        color="green"
+        gradient="success"
         :trend="`Margin: ${financeStore.overview.marginPct}%`"
         trendColor="green"
         :loading="financeStore.loading"
@@ -85,9 +88,10 @@
     <div class="col-12 col-md-6">
       <StatCard
         title="Payments Received"
-        :value="formatCurrency(financeStore.overview.totalReceived)"
+        :value="financeStore.overview.totalReceived"
+        prefix="LKR"
         icon="account_balance_wallet"
-        color="teal"
+        gradient="info"
         :loading="financeStore.loading"
       />
     </div>
@@ -96,9 +100,10 @@
     <div class="col-12 col-md-6">
       <StatCard
         title="Outstanding Receivables (AR)"
-        :value="formatCurrency(financeStore.overview.outstandingBalance)"
+        :value="financeStore.overview.outstandingBalance"
+        prefix="LKR"
         icon="pending_actions"
-        color="red"
+        gradient="danger"
         :loading="financeStore.loading"
       />
     </div>
@@ -124,15 +129,7 @@ const customRange = reactive({
   to: date.formatDate(new Date(), 'YYYY-MM-DD'),
 })
 
-function formatCurrency(val) {
-  return (
-    'LKR ' +
-    (Number(val) || 0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  )
-}
+// formatCurrency removed since LKR prefix is handled by StatCard
 
 let cleanup = null
 

@@ -42,7 +42,18 @@
               </q-select>
             </div>
 
-            <div class="col-12">
+            <div class="col-4">
+              <q-select
+                v-model="form.title"
+                :options="['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Rev.', 'Prof.']"
+                label="Title (Opt)"
+                outlined
+                dense
+                clearable
+              />
+            </div>
+
+            <div class="col-8">
               <q-input
                 v-model="form.name"
                 label="Full Name / Business Name *"
@@ -135,6 +146,7 @@ const dialogRef = ref(null)
 const form = reactive({
   id: props.customer?.id || null,
   category_id: props.customer?.category_id || null,
+  title: props.customer?.title || '',
   name: props.customer?.name || '',
   phone: props.customer?.phone || '',
   email: props.customer?.email || '',

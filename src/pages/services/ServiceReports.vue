@@ -30,23 +30,28 @@
     <!-- Summary Cards -->
     <div class="row q-col-gutter-lg q-mb-xl">
       <div v-for="card in summaryCards" :key="card.title" class="col-12 col-sm-6 col-md-3">
-        <q-card flat bordered class="glass-card q-pa-lg">
-          <div class="row items-center no-wrap">
+        <q-card flat bordered class="glass-card q-pa-md" style="height: 100%; display: flex; align-items: center;">
+          <div class="row items-center no-wrap full-width">
             <q-avatar
               :color="card.avatarColor"
               :text-color="card.iconColor"
               :icon="card.icon"
-              size="44px"
-              class="q-mr-md"
+              size="40px"
+              class="q-mr-sm"
             />
-            <div>
+            <div class="col" style="min-width: 0;">
               <div
-                class="text-caption text-grey-6 text-weight-bold text-uppercase"
-                style="letter-spacing: 0.8px; font-size: 10px"
+                class="text-grey-6 text-weight-bold text-uppercase"
+                style="letter-spacing: 0.5px; font-size: 10px; min-height: 26px; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px;"
               >
                 {{ card.title }}
               </div>
-              <div class="text-h5 text-weight-bolder">{{ card.value }}</div>
+              <div 
+                class="text-weight-bolder" 
+                style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word; letter-spacing: -0.01em;"
+              >
+                {{ card.value }}
+              </div>
             </div>
           </div>
         </q-card>

@@ -432,7 +432,10 @@
                           <q-item v-bind="scope.itemProps">
                             <q-item-section>
                               <q-item-label>{{ scope.opt.name }}</q-item-label>
-                              <q-item-label caption>{{ scope.opt.code }}</q-item-label>
+                              <q-item-label caption>
+                                {{ scope.opt.code }}
+                                · LKR {{ (scope.opt.sale_price > 0 ? scope.opt.sale_price : scope.opt.avg_cost > 0 ? scope.opt.avg_cost : scope.opt.last_purchase_price || 0).toLocaleString('en', { minimumFractionDigits: 2 }) }}
+                              </q-item-label>
                             </q-item-section>
                           </q-item>
                         </template>
@@ -489,6 +492,18 @@
                         outlined
                         dense
                         :dark="$q.dark.isActive"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-4">
+                      <q-input
+                        v-model.number="partForm.unit_price"
+                        label="Unit Price (LKR)"
+                        type="number"
+                        outlined
+                        dense
+                        prefix="LKR"
+                        :dark="$q.dark.isActive"
+                        hint="Auto-filled from inventory"
                       />
                     </div>
                     <div class="col-12">
@@ -758,7 +773,7 @@ async function loadInventoryItems() {
   if (!companyId) return
   const { data } = await supabase
     .from('items')
-    .select('id, name, code, selling_price')
+    .select('id, name, code, sale_price, avg_cost, last_purchase_price')
     .eq('company_id', companyId)
     .eq('is_active', true)
     .order('name')
@@ -787,7 +802,13 @@ function onInventoryItemSelected(itemId) {
   const item = inventoryItems.value.find((i) => i.id === itemId)
   if (item) {
     partForm.item_name = item.name
-    partForm.unit_price = Number(item.selling_price || 0)
+    // Best available price: sale_price → avg_cost → last_purchase_price
+    partForm.unit_price = Number(
+      item.sale_price > 0 ? item.sale_price
+      : item.avg_cost > 0 ? item.avg_cost
+      : item.last_purchase_price > 0 ? item.last_purchase_price
+      : 0
+    )
   }
 }
 
@@ -910,6 +931,20 @@ const partForm = reactive({
 const partColumns = [
   { name: 'item_name', label: 'Item', field: 'item_name', align: 'left' },
   { name: 'qty', label: 'Qty', field: 'qty', align: 'center' },
+  {
+    name: 'unit_price',
+    label: 'Unit Price',
+    field: 'unit_price',
+    align: 'right',
+    format: (v) => v > 0 ? 'LKR ' + Number(v).toLocaleString('en', { minimumFractionDigits: 2 }) : '—',
+  },
+  {
+    name: 'total',
+    label: 'Total',
+    field: 'total',
+    align: 'right',
+    format: (v) => v > 0 ? 'LKR ' + Number(v).toLocaleString('en', { minimumFractionDigits: 2 }) : '—',
+  },
   { name: 'notes', label: 'SN / Notes', field: 'notes', align: 'left' },
   { name: 'actions', label: '', field: 'actions', align: 'center' },
 ]
@@ -983,16 +1018,37 @@ function goToBillingWithJobDetails() {
   })
 
   // Add Parts used as separate lines
-  const partLines = (store.partsUsed || []).map((p) => ({
-    description: p.item_name,
-    qty: Number(p.qty || 1),
-    unit_price: Number(p.unit_price || 0),
-    discount: 0,
-    line_total: Number(p.total || p.qty * p.unit_price || 0),
-    warranty: '',
-    serial_number: p.notes || '',
-    item_code: '',
-  }))
+  // NOTE: stock is already deducted when parts are added to the service job.
+  // We pass item_code for reference but NOT product_id to avoid double-deduction
+  // by the invoice stock trigger.
+  const partLines = (store.partsUsed || []).map((p) => {
+    // If price was saved as 0 (old records before the fix), fall back to item's current price
+    const storedPrice = Number(p.unit_price || 0)
+    const itemFallbackPrice = storedPrice === 0
+      ? Number(
+          p.item?.sale_price > 0 ? p.item.sale_price
+          : p.item?.avg_cost > 0 ? p.item.avg_cost
+          : p.item?.last_purchase_price > 0 ? p.item.last_purchase_price
+          : 0
+        )
+      : storedPrice
+    const qty = Number(p.qty || 1)
+    const lineTotal = Number(p.total || 0) > 0
+      ? Number(p.total)
+      : qty * itemFallbackPrice
+
+    return {
+      description: p.item_name,
+      qty,
+      unit_price: itemFallbackPrice,
+      discount: 0,
+      line_total: lineTotal,
+      warranty: '',
+      serial_number: p.notes || '',
+      item_code: p.item?.code || '',
+      product_id: p.item_id || p.item?.id || null, // Let invoice GIN deduct the exact items billed
+    }
+  })
 
   lineItems.push(...partLines)
 
@@ -1065,10 +1121,14 @@ async function addPartItem() {
       unit_price: partForm.unit_price,
       notes: partForm.notes,
     })
+
+    // ── NOTE: Stock deduction logic was removed from here. 
+    // It is now handled exactly by the invoice when the service job is billed.
+
     showPartDialog.value = false
     Object.assign(partForm, { selectedItem: null, item_name: '', qty: 1, unit_price: 0, notes: '' })
     useManualItemName.value = false
-    $q.notify({ type: 'positive', message: 'Part added' })
+    $q.notify({ type: 'positive', message: 'Part added successfully' })
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
   }
@@ -1076,7 +1136,11 @@ async function addPartItem() {
 
 async function removePart(id) {
   try {
+    // Find the part before deleting so we can restore stock (logic removed, now tied to invoices)
     await store.deletePart(id)
+
+    // ── NOTE: Stock restore logic removed. Stock is now strictly tied to invoices.
+    $q.notify({ type: 'positive', message: 'Part removed' })
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
   }

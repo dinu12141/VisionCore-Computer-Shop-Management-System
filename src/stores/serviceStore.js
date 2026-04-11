@@ -381,7 +381,7 @@ export const useServiceStore = defineStore('services', () => {
   async function fetchParts(jobId) {
     const { data, error } = await supabase
       .from('service_parts_used')
-      .select('*, item:items(id, name, code)')
+      .select('*, item:items(id, name, code, sale_price, avg_cost, last_purchase_price)')
       .eq('job_id', jobId)
       .order('created_at')
     if (error) throw error

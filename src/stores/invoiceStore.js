@@ -15,79 +15,254 @@ export const useInvoiceStore = defineStore('invoices', () => {
       const companyId = getCompanyId()
       if (!companyId) throw new Error('Company ID missing')
 
-      // Explicitly build the invoice payload
-      const invoicePayload = {
-        company_id: companyId,
-        customer_id: invoiceData.customer_id || null,
-        status: invoiceData.status || 'issued',
-        payment_type: invoiceData.payment_type || 'cash',
-        subtotal: Number(invoiceData.subtotal || 0),
-        discount: Number(invoiceData.discount || 0),
-        tax: Number(invoiceData.tax || 0),
-        total: Number(invoiceData.total || 0),
-        paid_amount: Number(invoiceData.paid_amount || 0),
-        // Calculate balance and round to avoid floating point issues (e.g., 0.000000000001)
-        balance: Math.max(
-          0,
-          Math.round(
-            (Number(invoiceData.total || 0) - Number(invoiceData.paid_amount || 0)) * 100,
-          ) / 100,
-        ),
-        customer_snapshot: invoiceData.customer_snapshot || {},
-        notes: invoiceData.notes || null,
-        created_by: authStore.user?.id,
-        collection_date: invoiceData.collection_date || null,
-        invoice_date: invoiceData.invoice_date || null,
-        // VAT invoice fields — only include when it's a VAT invoice
-        ...(invoiceData.is_vat_invoice
-          ? {
-              is_vat_invoice: true,
-              vat_amount: Number(invoiceData.vat_amount || 0),
-              total_before_vat: Number(invoiceData.total_before_vat || 0),
-            }
-          : {}),
-        is_service_invoice: !!invoiceData.is_service_invoice,
-        service_job_id: invoiceData.service_job_id || null,
-        customer_po_no: invoiceData.customer_po_no || null,
+      const year = new Date().getFullYear().toString()
+      const total = Number(invoiceData.total || 0)
+      const paidAmount = Number(invoiceData.paid_amount || 0)
+      const balance = Math.max(0, Math.round((total - paidAmount) * 100) / 100)
+      const paymentStatus = paidAmount <= 0 ? 'unpaid' : balance <= 0 ? 'paid' : 'partial'
+
+      // ── STEP 1: Get invoice number (single fast query) ────────────
+      const { data: lastInv } = await supabase
+        .from('invoices')
+        .select('invoice_no')
+        .eq('company_id', companyId)
+        .like('invoice_no', `INV-${year}-%`)
+        .order('invoice_no', { ascending: false })
+        .limit(1)
+        .single()
+
+      let counter = 1
+      if (lastInv?.invoice_no) {
+        const parts = lastInv.invoice_no.split('-')
+        const lastNum = parseInt(parts[parts.length - 1], 10)
+        if (!isNaN(lastNum)) counter = lastNum + 1
+      }
+      const invoiceNo = `INV-${year}-${String(counter).padStart(6, '0')}`
+
+      // ── STEP 2: Insert invoice ────────────────────────────────────
+      const { data: invoice, error: invError } = await supabase
+        .from('invoices')
+        .insert({
+          company_id: companyId,
+          customer_id: invoiceData.customer_id || null,
+          status: invoiceData.status || 'issued',
+          payment_type: invoiceData.payment_type || 'cash',
+          payment_status: paymentStatus,
+          subtotal: Number(invoiceData.subtotal || 0),
+          discount: Number(invoiceData.discount || 0),
+          tax: Number(invoiceData.tax || 0),
+          total,
+          paid_amount: paidAmount,
+          balance,
+          customer_snapshot: invoiceData.customer_snapshot || {},
+          notes: invoiceData.notes || null,
+          created_by: authStore.user?.id,
+          invoice_no: invoiceNo,
+          collection_date: invoiceData.collection_date || null,
+          invoice_date: invoiceData.invoice_date || null,
+          ...(invoiceData.is_vat_invoice
+            ? {
+                is_vat_invoice: true,
+                vat_amount: Number(invoiceData.vat_amount || 0),
+                total_before_vat: Number(invoiceData.total_before_vat || 0),
+              }
+            : {}),
+          is_service_invoice: !!invoiceData.is_service_invoice,
+          service_job_id: invoiceData.service_job_id || null,
+          customer_po_no: invoiceData.customer_po_no || null,
+        })
+        .select('id, invoice_no')
+        .single()
+
+      if (invError) throw invError
+      const invoiceId = invoice.id
+
+      // ── STEP 3: Insert items + payment IN PARALLEL ────────────────
+      const preparedItems = items
+        .filter((i) => i.description)
+        .map((item) => ({
+          invoice_id: invoiceId,
+          product_id: item.product_id || null,
+          description: item.description,
+          item_code: item.item_code || null,
+          qty: Number(item.qty || 0),
+          unit_price: Number(item.unit_price || 0),
+          discount: Number(item.discount || 0),
+          line_total: Number(item.line_total || 0),
+          warranty: item.warranty || null,
+          serial_number: item.serial_number || null,
+          selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
+          cost_unit_price_snapshot: Number(item.cost_price || 0),
+        }))
+
+      const parallelOps = []
+
+      // Items insert
+      if (preparedItems.length > 0) {
+        parallelOps.push(
+          supabase.from('invoice_items').insert(preparedItems).then(({ error }) => {
+            if (error) throw error
+          }),
+        )
       }
 
-      // Prepare items for RPC
-      const preparedItems = items.map((item) => ({
-        product_id: item.product_id || null,
-        description: item.description,
-        item_code: item.item_code || null,
-        qty: Number(item.qty || 0),
-        unit_price: Number(item.unit_price || 0),
-        discount: Number(item.discount || 0),
-        line_total: Number(item.line_total || 0),
-        warranty: item.warranty || null,
-        serial_number: item.serial_number || null,
-        // Snapshots for financial history accuracy
-        selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
-        cost_unit_price_snapshot: Number(item.cost_price || 0),
-      }))
+      // Payment insert
+      if (paidAmount > 0) {
+        parallelOps.push(
+          supabase
+            .from('invoice_payments')
+            .insert({
+              company_id: companyId,
+              invoice_id: invoiceId,
+              customer_id: invoiceData.customer_id || null,
+              amount: paidAmount,
+              method: invoiceData.payment_type?.toUpperCase() || 'CASH',
+              created_by: authStore.user?.id,
+            })
+            .then(({ error }) => {
+              if (error) console.warn('[invoiceStore] Payment insert warning:', error)
+            }),
+        )
+      }
 
-      // Prepare payment payload for RPC
-      const paymentPayload = invoiceData.paid_amount > 0 ? {
-        amount: Number(invoiceData.paid_amount),
-        method: invoiceData.payment_type?.toUpperCase() || 'CASH',
-        customer_id: invoiceData.customer_id || null,
-        created_by: authStore.user?.id,
-      } : null
+      // Run items + payment together
+      await Promise.all(parallelOps)
 
-      // Call the atomic transaction RPC
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_invoice_v2', {
-        p_payload: invoicePayload,
-        p_items: preparedItems,
-        p_payment: paymentPayload
-      })
+      // ── STEP 4: Force-update totals (single fast update) ──────────
+      await supabase
+        .from('invoices')
+        .update({
+          subtotal: Number(invoiceData.subtotal || 0),
+          discount: Number(invoiceData.discount || 0),
+          tax: Number(invoiceData.tax || 0),
+          total,
+          paid_amount: paidAmount,
+          balance,
+          payment_status: paymentStatus,
+          ...(invoiceData.is_vat_invoice
+            ? {
+                is_vat_invoice: true,
+                vat_amount: Number(invoiceData.vat_amount || 0),
+                total_before_vat: Number(invoiceData.total_before_vat || 0),
+              }
+            : {}),
+        })
+        .eq('id', invoiceId)
 
-      if (rpcError) throw rpcError
+      // ── STEP 5: Stock deduction runs in BACKGROUND (non-blocking) ─
+      const trackedItems = preparedItems.filter((i) => i.product_id)
+      if (trackedItems.length > 0) {
+        _deductStockInBackground(companyId, invoiceId, invoiceNo, trackedItems).catch((err) =>
+          console.warn('[invoiceStore] Background stock deduction error:', err),
+        )
+      }
 
-      // Re-fetch the full invoice with items and updated totals
-      return await getInvoice(rpcResult.invoice_id)
+      // ── STEP 6: Return invoice immediately ────────────────────────
+      return await getInvoice(invoiceId)
     } finally {
       loading.value = false
+    }
+  }
+
+  // ── Background stock deduction (fire-and-forget) ──────────────────
+  async function _deductStockInBackground(companyId, invoiceId, invoiceNo, trackedItems) {
+    // Fetch warehouse + GIN counter + item details + fallback UOM all in PARALLEL
+    const [whResult, ginResult, itemsResult, uomResult] = await Promise.all([
+      supabase
+        .from('warehouses')
+        .select('id, branch_id')
+        .eq('company_id', companyId)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from('inventory_documents')
+        .select('doc_number')
+        .eq('company_id', companyId)
+        .like('doc_number', `GIN-${new Date().getFullYear()}-%`)
+        .order('doc_number', { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from('items')
+        .select('id, avg_cost, inventory_uom_id')
+        .in(
+          'id',
+          trackedItems.map((i) => i.product_id),
+        ),
+      supabase.from('uom').select('id').eq('company_id', companyId).limit(1).single(),
+    ])
+
+    const wh = whResult.data
+    if (!wh) return
+
+    // Generate GIN number
+    const ginYear = new Date().getFullYear().toString()
+    let ginCounter = 1
+    if (ginResult.data?.doc_number) {
+      const gParts = ginResult.data.doc_number.split('-')
+      const gNum = parseInt(gParts[gParts.length - 1], 10)
+      if (!isNaN(gNum)) ginCounter = gNum + 1
+    }
+    const ginDocNumber = `GIN-${ginYear}-${String(ginCounter).padStart(5, '0')}`
+
+    // Create GIN document
+    const { data: ginDoc, error: ginError } = await supabase
+      .from('inventory_documents')
+      .insert({
+        company_id: companyId,
+        branch_id: wh.branch_id,
+        doc_type: 'GIN',
+        doc_number: ginDocNumber,
+        doc_date: new Date().toISOString().split('T')[0],
+        warehouse_id: wh.id,
+        reference_id: invoiceId,
+        reference_type: 'invoice',
+        status: 'draft',
+        remarks: `Auto stock deduction for invoice ${invoiceNo}`,
+        created_by: authStore.user?.id,
+      })
+      .select('id')
+      .single()
+
+    if (ginError || !ginDoc) return
+
+    // Build item map
+    const itemMap = {}
+    ;(itemsResult.data || []).forEach((it) => {
+      itemMap[it.id] = it
+    })
+    const fallbackUomId = uomResult.data?.id || null
+
+    // Build GIN lines
+    const ginLines = []
+    let lineNum = 1
+    for (const ti of trackedItems) {
+      const detail = itemMap[ti.product_id] || {}
+      const uomId = detail.inventory_uom_id || fallbackUomId
+      if (uomId) {
+        ginLines.push({
+          document_id: ginDoc.id,
+          line_number: lineNum++,
+          item_id: ti.product_id,
+          uom_id: uomId,
+          quantity: ti.qty,
+          unit_cost: detail.avg_cost || 0,
+          notes: 'Sale from invoice',
+        })
+      }
+    }
+
+    if (ginLines.length > 0) {
+      const { error: linesError } = await supabase
+        .from('inventory_document_lines')
+        .insert(ginLines)
+      if (!linesError) {
+        await supabase.from('inventory_documents').update({ status: 'posted' }).eq('id', ginDoc.id)
+      }
+    } else {
+      await supabase.from('inventory_documents').delete().eq('id', ginDoc.id)
     }
   }
 
@@ -164,7 +339,7 @@ export const useInvoiceStore = defineStore('invoices', () => {
         query = query.lte('invoice_date', filters.dateTo)
       }
 
-      const { data, error } = await query.limit(100)
+      const { data, error } = await query
       if (error) throw error
       return data
     } catch (err) {

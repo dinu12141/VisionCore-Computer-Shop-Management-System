@@ -29,26 +29,26 @@
     <!-- Stats Row -->
     <div class="row q-col-gutter-md q-mb-lg">
       <div class="col-6 col-sm-3">
-        <q-card class="stat-card" flat>
-          <q-card-section class="q-pa-md">
-            <div class="row items-center no-wrap">
-              <q-icon name="receipt" size="32px" color="primary" class="q-mr-sm" />
-              <div>
-                <div class="text-caption text-grey-6">Total Invoices</div>
-                <div class="text-h6 text-weight-bold">{{ invoices.length }}</div>
+        <q-card class="stat-card" flat style="height: 100%;">
+          <q-card-section class="q-pa-md" style="height: 100%; display: flex; align-items: center;">
+            <div class="row items-center no-wrap full-width">
+              <q-icon name="receipt" size="30px" color="primary" class="q-mr-sm" />
+              <div class="col" style="min-width: 0;">
+                <div class="text-caption text-grey-6" style="font-size: 10px; min-height: 26px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px;">Total Invoices</div>
+                <div class="text-weight-bold" style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word;">{{ invoices.length }}</div>
               </div>
             </div>
           </q-card-section>
         </q-card>
       </div>
       <div class="col-6 col-sm-3">
-        <q-card class="stat-card" flat>
-          <q-card-section class="q-pa-md">
-            <div class="row items-center no-wrap">
-              <q-icon name="payments" size="32px" color="positive" class="q-mr-sm" />
-              <div>
-                <div class="text-caption text-grey-6">Total Revenue</div>
-                <div class="text-h6 text-weight-bold text-positive">
+        <q-card class="stat-card" flat style="height: 100%;">
+          <q-card-section class="q-pa-md" style="height: 100%; display: flex; align-items: center;">
+            <div class="row items-center no-wrap full-width">
+              <q-icon name="payments" size="30px" color="positive" class="q-mr-sm" />
+              <div class="col" style="min-width: 0;">
+                <div class="text-caption text-grey-6" style="font-size: 10px; min-height: 26px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px;">Total Revenue</div>
+                <div class="text-weight-bold text-positive" style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word;">
                   {{ formatCurrency(totalRevenue) }}
                 </div>
               </div>
@@ -57,13 +57,13 @@
         </q-card>
       </div>
       <div class="col-6 col-sm-3">
-        <q-card class="stat-card" flat>
-          <q-card-section class="q-pa-md">
-            <div class="row items-center no-wrap">
-              <q-icon name="warning_amber" size="32px" color="negative" class="q-mr-sm" />
-              <div>
-                <div class="text-caption text-grey-6">Total Outstanding</div>
-                <div class="text-h6 text-weight-bold text-negative">
+        <q-card class="stat-card" flat style="height: 100%;">
+          <q-card-section class="q-pa-md" style="height: 100%; display: flex; align-items: center;">
+            <div class="row items-center no-wrap full-width">
+              <q-icon name="warning_amber" size="30px" color="negative" class="q-mr-sm" />
+              <div class="col" style="min-width: 0;">
+                <div class="text-caption text-grey-6" style="font-size: 10px; min-height: 26px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px;">Total Outstanding</div>
+                <div class="text-weight-bold text-negative" style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word;">
                   {{ formatCurrency(totalOutstanding) }}
                 </div>
               </div>
@@ -72,13 +72,13 @@
         </q-card>
       </div>
       <div class="col-6 col-sm-3">
-        <q-card class="stat-card" flat>
-          <q-card-section class="q-pa-md">
-            <div class="row items-center no-wrap">
-              <q-icon name="receipt_long" size="32px" color="deep-orange" class="q-mr-sm" />
-              <div>
-                <div class="text-caption text-grey-6">Tax Invoices</div>
-                <div class="text-h6 text-weight-bold text-deep-orange">{{ taxInvoiceCount }}</div>
+        <q-card class="stat-card" flat style="height: 100%;">
+          <q-card-section class="q-pa-md" style="height: 100%; display: flex; align-items: center;">
+            <div class="row items-center no-wrap full-width">
+              <q-icon name="receipt_long" size="30px" color="deep-orange" class="q-mr-sm" />
+              <div class="col" style="min-width: 0;">
+                <div class="text-caption text-grey-6" style="font-size: 10px; min-height: 26px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px;">Tax Invoices</div>
+                <div class="text-weight-bold text-deep-orange" style="font-size: clamp(0.95rem, 1.5vw, 1.25rem); line-height: 1.2; word-break: break-word;">{{ taxInvoiceCount }}</div>
               </div>
             </div>
           </q-card-section>
