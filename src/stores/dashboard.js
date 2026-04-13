@@ -35,9 +35,16 @@ export const useDashboardStore = defineStore('dashboard', {
       this.loading = true
       try {
         const auth = useAuthStore()
-        // If not initialized, wait a bit for auth background fetch
+        // If not initialized, poll briefly for auth background fetch to complete
         if (!auth.currentBranch?.company_id) {
-          await new Promise((resolve) => setTimeout(resolve, 800))
+          for (let i = 0; i < 20; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 100))
+            if (auth.currentBranch?.company_id) break
+          }
+          if (!auth.currentBranch?.company_id) {
+            console.warn('[Dashboard] No company_id after waiting — skipping refresh')
+            return
+          }
         }
 
         await Promise.all([

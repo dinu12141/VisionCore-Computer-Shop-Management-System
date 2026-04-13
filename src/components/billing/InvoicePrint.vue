@@ -186,6 +186,10 @@ defineExpose({
   padding: 0;
   margin: 0 auto;
   overflow: hidden;
+  /* Force light appearance regardless of dark mode */
+  background: #fff !important;
+  color: #1a1a1a !important;
+  color-scheme: light !important;
 }
 
 @media (max-width: 800px) {
@@ -193,5 +197,47 @@ defineExpose({
     width: 100%;
     min-height: auto;
   }
+}
+</style>
+
+<!-- Deep (unscoped) styles to override Quasar dark mode inside v-html content -->
+<style>
+.invoice-preview-container .page {
+  background: #fff !important;
+  color: #1a1a1a !important;
+}
+.invoice-preview-container .page .meta-card {
+  background: #fafafa !important;
+  border-color: #ddd !important;
+}
+.invoice-preview-container .page .totals-box {
+  background-color: #fcfcfc !important;
+  border-color: #000 !important;
+}
+.invoice-preview-container .page .balance-line {
+  background-color: #f0f0f0 !important;
+  border-color: #ccc !important;
+}
+.invoice-preview-container .page .remarks-section {
+  background-color: #fffde7 !important;
+  border-color: #999 !important;
+}
+.invoice-preview-container .page table.items {
+  border-color: #000 !important;
+}
+.invoice-preview-container .page table.items th {
+  background-color: #ed1c24 !important;
+  color: #fff !important;
+  border-color: #000 !important;
+}
+.invoice-preview-container .page table.items td {
+  border-color: #000 !important;
+  color: #1a1a1a !important;
+}
+.invoice-preview-container .page .company-info {
+  border-left-color: #ed1c24 !important;
+}
+.invoice-preview-container .page .footer {
+  border-top-color: #000 !important;
 }
 </style>

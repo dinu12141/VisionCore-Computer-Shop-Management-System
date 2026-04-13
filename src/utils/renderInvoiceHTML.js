@@ -9,6 +9,17 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
 
   const logoUrl = window.location.origin + '/logo.png'
 
+  // Escape HTML to prevent XSS when rendering user-controlled data
+  const escapeHtml = (str) => {
+    if (str === null || str === undefined) return ''
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+
   const formatDate = (d) => {
     if (!d) return ''
     const months = [
@@ -38,12 +49,12 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
     const warranty = item.warranty
     return `
       <tr>
-        <td class="text-center">${item.qty}</td>
+        <td class="text-center">${escapeHtml(item.qty)}</td>
         <td>
-          <div class="main-desc">${item.description}</div>
+          <div class="main-desc">${escapeHtml(item.description)}</div>
           <div class="item-meta">
-            ${sn ? `<span>SN: ${sn}</span>` : ''}
-            ${warranty ? `<span style="margin-left: 10px;">Warranty: ${warranty}</span>` : ''}
+            ${sn ? `<span>SN: ${escapeHtml(sn)}</span>` : ''}
+            ${warranty ? `<span style="margin-left: 10px;">Warranty: ${escapeHtml(warranty)}</span>` : ''}
           </div>
         </td>
         <td class="text-right">${formatCurrency(item.unit_price)}</td>
@@ -108,13 +119,65 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           print-color-adjust: exact !important;
         }
 
+        /*
+         * Force all colors explicitly so dark mode (Quasar) cannot
+         * cascade white text into the invoice when rendered via v-html.
+         */
+        .page, .page * {
+          color: #1a1a1a !important;
+          -webkit-text-fill-color: #1a1a1a !important;
+        }
+        /* Preserve specific color overrides */
+        .page .text-red,
+        .page .text-red * {
+          color: #ed1c24 !important;
+          -webkit-text-fill-color: #ed1c24 !important;
+        }
+        .page .title-bar {
+          color: #ed1c24 !important;
+          -webkit-text-fill-color: #ed1c24 !important;
+        }
+        .page table.items th,
+        .page table.items th * {
+          color: #ffffff !important;
+          -webkit-text-fill-color: #ffffff !important;
+        }
+        .page .item-meta,
+        .page .item-meta * {
+          color: #555 !important;
+          -webkit-text-fill-color: #555 !important;
+        }
+        .page .bill-to-label {
+          color: #666 !important;
+          -webkit-text-fill-color: #666 !important;
+        }
+        .page .meta-label {
+          color: #555 !important;
+          -webkit-text-fill-color: #555 !important;
+        }
+        .page .remarks-label {
+          color: #333 !important;
+          -webkit-text-fill-color: #333 !important;
+        }
+        .page .remarks-text {
+          color: #555 !important;
+          -webkit-text-fill-color: #555 !important;
+        }
+        .page tr.empty-row td,
+        .page tr.empty-row td * {
+          color: transparent !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+
         .page {
           width: 210mm;
           min-height: 296mm; /* Almost full A4 height to force 1 page usually */
           margin: 0 auto;
           padding: 15mm 20mm;
           box-sizing: border-box;
-          position: relative;
+          display: flex;
+          flex-direction: column;
+          background: #fff !important;
         }
 
         /* Helpers */
@@ -311,12 +374,13 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           color: #555;
         }
 
+        /* Spacer pushes footer to bottom when content is short */
+        .footer-spacer {
+          flex: 1;
+        }
+
         /* Footer */
         .footer {
-          position: absolute;
-          bottom: 15mm;
-          left: 20mm;
-          right: 20mm;
           border-top: 1px solid #000;
           padding-top: 15px;
           font-size: 12px;
@@ -352,16 +416,16 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         <div class="info-grid">
           <div class="customer-card">
             <div class="bill-to-label">Billed To:</div>
-            ${invoice.customer_snapshot?.tax_number ? `<div class="font-bold text-red">TAX NO: ${invoice.customer_snapshot.tax_number}</div>` : ''}
-            <div class="customer-name">${invoice.customer_snapshot?.name ? (invoice.customer_snapshot.name.toLowerCase() === 'walk-in' || invoice.customer_snapshot.name.toLowerCase() === 'walk in' ? invoice.customer_snapshot.name : (invoice.customer_snapshot.title ? invoice.customer_snapshot.title + ' ' : '') + invoice.customer_snapshot.name) : 'Walk-in Customer'}</div>
-            <div>${invoice.customer_snapshot?.address || ''}</div>
-            <div>${invoice.customer_snapshot?.phone || ''}</div>
+            ${invoice.customer_snapshot?.tax_number ? `<div class="font-bold text-red">TAX NO: ${escapeHtml(invoice.customer_snapshot.tax_number)}</div>` : ''}
+            <div class="customer-name">${invoice.customer_snapshot?.name ? (invoice.customer_snapshot.name.toLowerCase() === 'walk-in' || invoice.customer_snapshot.name.toLowerCase() === 'walk in' ? escapeHtml(invoice.customer_snapshot.name) : (invoice.customer_snapshot.title ? escapeHtml(invoice.customer_snapshot.title) + ' ' : '') + escapeHtml(invoice.customer_snapshot.name)) : 'Walk-in Customer'}</div>
+            <div>${escapeHtml(invoice.customer_snapshot?.address || '')}</div>
+            <div>${escapeHtml(invoice.customer_snapshot?.phone || '')}</div>
           </div>
           
           <div class="meta-card">
             <div class="meta-row">
               <span class="meta-label">Invoice No:</span>
-              <span class="meta-value">${invoice.invoice_no || '-'}</span>
+              <span class="meta-value">${escapeHtml(invoice.invoice_no || '-')}</span>
             </div>
             <div class="meta-row">
               <span class="meta-label">Date:</span>
@@ -370,7 +434,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
             ${invoice.customer_po_no ? `
             <div class="meta-row">
               <span class="meta-label">Cust. PO:</span>
-              <span class="meta-value">${invoice.customer_po_no}</span>
+              <span class="meta-value">${escapeHtml(invoice.customer_po_no)}</span>
             </div>` : ''}
           </div>
         </div>
@@ -412,9 +476,12 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         <!-- REMARKS -->
         <div class="remarks-section">
           <span class="remarks-label">Remarks:</span>
-          <span class="remarks-text">${invoice.notes}</span>
+          <span class="remarks-text">${escapeHtml(invoice.notes)}</span>
         </div>
         ` : ''}
+
+        <!-- SPACER: pushes footer to bottom -->
+        <div class="footer-spacer"></div>
 
         <!-- FOOTER -->
         <div class="footer">

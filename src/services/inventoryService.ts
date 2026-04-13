@@ -52,29 +52,6 @@ export interface DocumentFilters {
   search?: string
 }
 
-export interface DocumentLinePayload {
-  item_id: string
-  uom_id: string
-  quantity: number
-  unit_cost: number
-  batch_no?: string
-  expiry_date?: string
-  system_qty?: number
-  counted_qty?: number
-  variance_qty?: number
-  notes?: string
-}
-
-export interface DocumentHeaderPayload {
-  doc_type: string
-  doc_date: string
-  warehouse_id: string
-  target_warehouse_id?: string
-  supplier_id?: string
-  reference_no?: string
-  remarks?: string
-}
-
 /* ====================================================================
    1.  listDocuments(filters)
 ==================================================================== */
@@ -113,9 +90,13 @@ export function useDocumentList() {
       if (filters.dateFrom) query = query.gte('doc_date', filters.dateFrom)
       if (filters.dateTo) query = query.lte('doc_date', filters.dateTo)
       if (filters.search) {
-        query = query.or(
-          `doc_number.ilike.%${filters.search}%,reference_no.ilike.%${filters.search}%`,
-        )
+        // Sanitize search input: strip PostgREST special characters to prevent filter injection
+        const safeSearch = filters.search.replace(/[(),."\\]/g, '')
+        if (safeSearch) {
+          query = query.or(
+            `doc_number.ilike.%${safeSearch}%,reference_no.ilike.%${safeSearch}%`,
+          )
+        }
       }
 
       const { data, error: err } = await query.limit(200)
@@ -285,7 +266,7 @@ export async function fetchDocumentById(docId: string) {
       supplier_email: header.supplier?.email || '',
       target_warehouse_name: header.target_wh?.name || '',
       created_by_name: header.creator?.full_name || '',
-      reference_no: header.reference_type || '',
+      reference_no: header.reference_no || '',
     },
     lines: (lines || []).map((l: any) => ({
       ...l,

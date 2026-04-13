@@ -176,9 +176,18 @@ const searchString = ref('')
 async function fetchProducts() {
   loadingProducts.value = true
   try {
+    const companyId =
+      authStore.currentBranch?.company_id ||
+      authStore.user?.user_metadata?.company_id ||
+      authStore.profile?.company_id
+    if (!companyId) {
+      $q.notify({ type: 'warning', message: 'No company context. Please select a branch.' })
+      return
+    }
     const { data, error } = await supabase
       .from('items')
       .select('id, name, code')
+      .eq('company_id', companyId)
       .eq('is_active', true)
       .order('name')
 

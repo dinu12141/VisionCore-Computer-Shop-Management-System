@@ -21,22 +21,12 @@ export const useInvoiceStore = defineStore('invoices', () => {
       const balance = Math.max(0, Math.round((total - paidAmount) * 100) / 100)
       const paymentStatus = paidAmount <= 0 ? 'unpaid' : balance <= 0 ? 'paid' : 'partial'
 
-      // ── STEP 1: Get invoice number (single fast query) ────────────
-      const { data: lastInv } = await supabase
-        .from('invoices')
-        .select('invoice_no')
-        .eq('company_id', companyId)
-        .like('invoice_no', `INV-${year}-%`)
-        .order('invoice_no', { ascending: false })
-        .limit(1)
-        .single()
-
-      let counter = 1
-      if (lastInv?.invoice_no) {
-        const parts = lastInv.invoice_no.split('-')
-        const lastNum = parseInt(parts[parts.length - 1], 10)
-        if (!isNaN(lastNum)) counter = lastNum + 1
-      }
+      // ── STEP 1: Get invoice number (atomic counter — race-condition safe) ──
+      const { data: counter, error: counterErr } = await supabase.rpc('get_next_counter_value', {
+        p_company_id: companyId,
+        p_type: 'invoice',
+      })
+      if (counterErr) throw counterErr
       const invoiceNo = `INV-${year}-${String(counter).padStart(6, '0')}`
 
       // ── STEP 2: Insert invoice ────────────────────────────────────

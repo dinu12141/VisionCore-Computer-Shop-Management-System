@@ -259,6 +259,9 @@ export const useServiceStore = defineStore('services', () => {
     if (!companyId) throw new Error('Company ID missing')
     loading.value = true
     try {
+      // Capture previous status BEFORE the update
+      const previousStatus = currentJob.value?.status || 'unknown'
+
       const updates = { status: newStatus }
       if (newStatus === 'delivered') updates.delivered_date = new Date().toISOString().split('T')[0]
       if (newStatus === 'approved') {
@@ -277,7 +280,7 @@ export const useServiceStore = defineStore('services', () => {
       currentJob.value = data
 
       await logActivity(jobId, companyId, 'status_change', `Status → ${STATUS_LABELS[newStatus]}`, {
-        from: currentJob.value?.status,
+        from: previousStatus,
         to: newStatus,
         notes,
       })

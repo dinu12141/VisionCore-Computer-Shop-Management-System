@@ -218,14 +218,24 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
       .limit(limit)
 
     // Step B: items where any serial in the serials JSONB array matches the query
-    // PostgREST cs (contains) only works for exact subset match, so we use
-    // a text-search approach: filter where serials::text ilike the pattern
-    const { data: serialMatchItems } = await supabase
-      .from('items')
-      .select('id, name, code, serials')
+    // PostgREST doesn't support column::type casting, so search the synced
+    // item_serials table instead (populated by trg_sync_serials trigger)
+    const { data: serialHitItems } = await supabase
+      .from('item_serials')
+      .select('item_id')
       .eq('company_id', companyId)
-      .ilike('serials::text', pat)
+      .ilike('serial_number', pat)
       .limit(10)
+
+    const serialItemIds = [...new Set((serialHitItems || []).map((s: any) => s.item_id))]
+    let serialMatchItems: typeof nameCodeItems = []
+    if (serialItemIds.length > 0) {
+      const { data: matchedItems } = await supabase
+        .from('items')
+        .select('id, name, code, serials')
+        .in('id', serialItemIds)
+      serialMatchItems = matchedItems || []
+    }
 
     // Merge both result sets (dedupe by id)
     const allItemMap = new Map<string, NonNullable<typeof nameCodeItems>[number]>()

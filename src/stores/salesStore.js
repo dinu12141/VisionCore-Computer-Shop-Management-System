@@ -51,8 +51,6 @@ export const useSalesStore = defineStore('sales', {
           price: data.item.sale_price
             ? parseFloat(data.item.sale_price)
             : parseFloat(data.item.last_purchase_price || 0) * 1.25,
-          image:
-            'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop',
           category: data.item.category || 'Hardware',
           warranty: data.item.warranty || '',
         }
