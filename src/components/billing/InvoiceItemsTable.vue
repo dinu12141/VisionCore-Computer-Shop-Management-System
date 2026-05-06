@@ -113,21 +113,39 @@
 
       <template v-slot:body-cell-discount="props">
         <q-td :props="props">
-          <q-input
-            v-model.number="props.row.discount"
-            type="number"
-            dense
-            outlined
-            style="width: 90px"
-            @wheel.prevent
-            @update:model-value="calculateLine(props.row)"
-          />
+          <div class="row items-center no-wrap" style="gap: 4px">
+            <q-input
+              v-model.number="props.row.discount"
+              type="number"
+              dense
+              outlined
+              style="width: 80px"
+              :suffix="props.row.discount_type === 'percent' ? '%' : ''"
+              :prefix="props.row.discount_type === 'amount' ? 'Rs.' : ''"
+              @wheel.prevent
+              @update:model-value="calculateLine(props.row)"
+            />
+            <q-btn
+              flat
+              dense
+              round
+              size="xs"
+              :icon="props.row.discount_type === 'percent' ? 'percent' : 'payments'"
+              :color="props.row.discount_type === 'percent' ? 'deep-orange' : 'primary'"
+              @click="toggleDiscountType(props.row)"
+            >
+              <q-tooltip>Switch to {{ props.row.discount_type === 'percent' ? 'Amount (Rs.)' : 'Percentage (%)' }}</q-tooltip>
+            </q-btn>
+          </div>
         </q-td>
       </template>
 
       <template v-slot:body-cell-line_total="props">
-        <q-td :props="props" align="right" class="text-weight-bold">
-          {{ formatCurrency(props.row.line_total) }}
+        <q-td :props="props" align="right">
+          <div class="text-weight-bold">{{ formatCurrency(props.row.line_total) }}</div>
+          <div v-if="props.row.discount > 0" class="text-caption text-negative" style="font-size: 10px; line-height: 1.2">
+            -{{ props.row.discount_type === 'percent' ? props.row.discount + '%' : formatCurrency(props.row.discount) }} off
+          </div>
         </q-td>
       </template>
 
@@ -191,7 +209,7 @@ const columns = [
   { name: 'warranty', label: 'Warranty', align: 'left', field: 'warranty' },
   { name: 'qty', label: 'Quantity', align: 'left', field: 'qty' },
   { name: 'unit_price', label: 'Unit Price', align: 'left', field: 'unit_price' },
-  { name: 'discount', label: 'Discount', align: 'left', field: 'discount' },
+  { name: 'discount', label: 'Discount', align: 'left', field: 'discount', style: 'min-width: 140px' },
   { name: 'line_total', label: 'Total', align: 'right', field: 'line_total' },
   { name: 'actions', label: '', align: 'center' },
 ]
@@ -220,6 +238,7 @@ function onItemSelected(val, row) {
     row.unit_price = val.sale_price || val.selling_price || 0
     row.cost_price = val.cost_price || val.avg_cost || 0
     row.warranty = val.warranty || ''
+    if (!row.discount_type) row.discount_type = 'amount'
     calculateLine(row)
   }
 }
@@ -320,6 +339,7 @@ function addItem() {
       item_code: '',
       qty: 1,
       discount: 0,
+      discount_type: 'amount',
       line_total: 0,
       warranty: '',
       serial_number: '',
@@ -337,6 +357,7 @@ function removeItem(idx) {
       item_code: '',
       qty: 1,
       discount: 0,
+      discount_type: 'amount',
       line_total: 0,
       warranty: '',
       serial_number: '',
@@ -345,9 +366,24 @@ function removeItem(idx) {
   emit('update:items', newItems)
 }
 
+function toggleDiscountType(row) {
+  row.discount_type = row.discount_type === 'percent' ? 'amount' : 'percent'
+  calculateLine(row)
+}
+
 function calculateLine(row) {
-  row.line_total =
-    Math.round(((row.qty || 0) * (row.unit_price || 0) - (row.discount || 0)) * 100) / 100
+  const gross = (row.qty || 0) * (row.unit_price || 0)
+  let discountAmount = 0
+  if (row.discount_type === 'percent') {
+    // Clamp percentage between 0-100
+    const pct = Math.min(100, Math.max(0, row.discount || 0))
+    discountAmount = Math.round(gross * pct / 100 * 100) / 100
+  } else {
+    discountAmount = Math.max(0, row.discount || 0)
+  }
+  // Store the computed discount amount for downstream use
+  row.discount_amount = discountAmount
+  row.line_total = Math.max(0, Math.round((gross - discountAmount) * 100) / 100)
 }
 
 function formatCurrency(val) {

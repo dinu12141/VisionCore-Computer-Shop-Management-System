@@ -221,17 +221,36 @@
                 <span>{{ formatCurrency(totals.subtotal) }}</span>
               </div>
               <div class="row justify-between items-center">
-                <span class="text-grey-7">Global Discount</span>
-                <q-input
-                  v-model.number="form.globalDiscount"
-                  type="number"
-                  dense
-                  outlined
-                  align="right"
-                  style="width: 100px"
-                  @wheel.prevent
-                  @update:model-value="() => {}"
-                />
+                <div>
+                  <span class="text-grey-7">Global Discount</span>
+                  <div v-if="form.globalDiscount > 0 && form.globalDiscountType === 'percent'" class="text-caption text-negative" style="font-size: 10px">
+                    = {{ formatCurrency(totals.globalDiscountAmount) }}
+                  </div>
+                </div>
+                <div class="row items-center no-wrap" style="gap: 4px">
+                  <q-input
+                    v-model.number="form.globalDiscount"
+                    type="number"
+                    dense
+                    outlined
+                    align="right"
+                    style="width: 100px"
+                    :suffix="form.globalDiscountType === 'percent' ? '%' : ''"
+                    :prefix="form.globalDiscountType === 'amount' ? 'Rs.' : ''"
+                    @wheel.prevent
+                  />
+                  <q-btn
+                    flat
+                    dense
+                    round
+                    size="sm"
+                    :icon="form.globalDiscountType === 'percent' ? 'percent' : 'payments'"
+                    :color="form.globalDiscountType === 'percent' ? 'deep-orange' : 'primary'"
+                    @click="form.globalDiscountType = form.globalDiscountType === 'percent' ? 'amount' : 'percent'"
+                  >
+                    <q-tooltip>Switch to {{ form.globalDiscountType === 'percent' ? 'Amount (Rs.)' : 'Percentage (%)' }}</q-tooltip>
+                  </q-btn>
+                </div>
               </div>
 
               <!-- NON-VAT: Simple Total -->
@@ -409,6 +428,7 @@ const items = ref([
     qty: 1,
     unit_price: 0,
     discount: 0,
+    discount_type: 'amount',
     line_total: 0,
     warranty: '',
     serial_number: '',
@@ -419,6 +439,7 @@ const form = reactive({
   payment_type: 'cash',
   status: 'issued',
   globalDiscount: 0,
+  globalDiscountType: 'amount',
   paidAmount: 0,
   notes: '',
   isPartPayment: false,
@@ -435,14 +456,22 @@ const VAT_RATE = 0.18
 const totals = computed(() => {
   const rawSubtotal = items.value.reduce((acc, cur) => acc + (cur.line_total || 0), 0)
   const subtotal = Math.round(rawSubtotal * 100) / 100
-  const total = Math.max(0, Math.round((subtotal - (form.globalDiscount || 0)) * 100) / 100)
+  // Calculate global discount amount
+  let globalDiscountAmount = 0
+  if (form.globalDiscountType === 'percent') {
+    const pct = Math.min(100, Math.max(0, form.globalDiscount || 0))
+    globalDiscountAmount = Math.round(subtotal * pct / 100 * 100) / 100
+  } else {
+    globalDiscountAmount = Math.max(0, form.globalDiscount || 0)
+  }
+  const total = Math.max(0, Math.round((subtotal - globalDiscountAmount) * 100) / 100)
   // VAT calculations
   const vatAmount = form.isVatInvoice ? Math.round(total * VAT_RATE * 100) / 100 : 0
   const grandTotal = form.isVatInvoice ? Math.round((total + vatAmount) * 100) / 100 : total
   // Balance is always computed against the final payable amount
   const finalPayable = form.isVatInvoice ? grandTotal : total
   const balance = Math.round((finalPayable - (form.paidAmount || 0)) * 100) / 100
-  return { subtotal, total, vatAmount, grandTotal, balance }
+  return { subtotal, globalDiscountAmount, total, vatAmount, grandTotal, balance }
 })
 
 const selectedCustomerData = computed(() =>
@@ -486,6 +515,7 @@ onMounted(async () => {
         qty: i.qty,
         unit_price: i.unit_price,
         discount: i.discount,
+        discount_type: i.discount_type || 'amount',
         line_total: i.line_total,
         warranty: i.warranty,
         serial_number: i.serial_number,
@@ -553,6 +583,7 @@ onMounted(async () => {
           qty: Number(p.qty || 1),
           unit_price: Number(p.unit_price || 0),
           discount: Number(p.discount || 0),
+          discount_type: p.discount_type || 'amount',
           line_total: Number(p.line_total || p.unit_price * p.qty || 0),
           warranty: p.warranty || '',
           serial_number: p.serial_number || '',
@@ -653,7 +684,7 @@ async function submitInvoice() {
       status: finalStatus,
       payment_type: form.payment_type,
       subtotal: totals.value.subtotal,
-      discount: form.globalDiscount,
+      discount: totals.value.globalDiscountAmount,
       tax: totals.value.vatAmount,
       total: finalTotal,
       paid_amount: form.paidAmount,
@@ -704,6 +735,7 @@ async function submitInvoice() {
         qty: 1,
         unit_price: 0,
         discount: 0,
+        discount_type: 'amount',
         line_total: 0,
         warranty: '',
         serial_number: '',

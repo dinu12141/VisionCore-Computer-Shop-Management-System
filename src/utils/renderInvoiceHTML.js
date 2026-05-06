@@ -47,6 +47,18 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
   const itemsHtml = items.map((item) => {
     const sn = item.serial_number || item.serialNumber
     const warranty = item.warranty
+    // Per-line discount display
+    let discountDisplay = '-'
+    const discountVal = Number(item.discount || 0)
+    const discountType = item.discount_type || 'amount'
+    const discountAmount = Number(item.discount_amount || item.discount || 0)
+    if (discountVal > 0) {
+      if (discountType === 'percent') {
+        discountDisplay = `${discountVal}% <span class="item-meta">(${formatCurrency(discountAmount)})</span>`
+      } else {
+        discountDisplay = formatCurrency(discountVal)
+      }
+    }
     return `
       <tr>
         <td class="text-center">${escapeHtml(item.qty)}</td>
@@ -58,6 +70,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
           </div>
         </td>
         <td class="text-right">${formatCurrency(item.unit_price)}</td>
+        <td class="text-right">${discountDisplay}</td>
         <td class="text-right font-bold">${formatCurrency(item.line_total)}</td>
       </tr>`
   }).join('')
@@ -66,7 +79,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
   const emptyRowsCount = Math.max(0, 5 - items.length)
   const emptyRowsHtml = Array(emptyRowsCount).fill(0).map(() => `
     <tr class="empty-row">
-      <td></td><td></td><td></td><td></td>
+      <td></td><td></td><td></td><td></td><td></td>
     </tr>
   `).join('')
 
@@ -74,11 +87,25 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
   const isVat = !!invoice.is_vat_invoice
   const invoiceTitle = isVat ? 'TAX INVOICE' : 'INVOICE'
 
+  // Calculate items subtotal (sum of line_totals which already have per-line discounts applied)
+  const itemsSubtotal = items.reduce((sum, i) => sum + Number(i.line_total || 0), 0)
+  const globalDiscount = Number(invoice.discount || 0)
+  const hasGlobalDiscount = globalDiscount > 0
+
   let totalsHtml = ''
   if (isVat) {
     totalsHtml = `
       <div class="total-line">
         <span class="total-label">Subtotal</span>
+        <span class="total-val">${formatCurrency(itemsSubtotal)}</span>
+      </div>
+      ${hasGlobalDiscount ? `
+      <div class="total-line text-red">
+        <span class="total-label">Discount</span>
+        <span class="total-val">- ${formatCurrency(globalDiscount)}</span>
+      </div>` : ''}
+      <div class="total-line">
+        <span class="total-label">Net Amount</span>
         <span class="total-val">${formatCurrency(invoice.total_before_vat || 0)}</span>
       </div>
       <div class="total-line text-red">
@@ -91,6 +118,15 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
       </div>`
   } else {
     totalsHtml = `
+      <div class="total-line">
+        <span class="total-label">Subtotal</span>
+        <span class="total-val">${formatCurrency(itemsSubtotal)}</span>
+      </div>
+      ${hasGlobalDiscount ? `
+      <div class="total-line text-red">
+        <span class="total-label">Discount</span>
+        <span class="total-val">- ${formatCurrency(globalDiscount)}</span>
+      </div>` : ''}
       <div class="total-line grand-total">
         <span class="total-label">TOTAL</span>
         <span class="total-val">${formatCurrency(invoice.total)}</span>
@@ -314,10 +350,11 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
         .item-meta { font-size: 11px; color: #555; }
 
         /* Column widths */
-        th:nth-child(1) { width: 8%; }
-        th:nth-child(2) { width: 52%; text-align: left; }
-        th:nth-child(3) { width: 20%; text-align: right; }
-        th:nth-child(4) { width: 20%; text-align: right; }
+        th:nth-child(1) { width: 7%; }
+        th:nth-child(2) { width: 42%; text-align: left; }
+        th:nth-child(3) { width: 18%; text-align: right; }
+        th:nth-child(4) { width: 14%; text-align: right; }
+        th:nth-child(5) { width: 19%; text-align: right; }
 
         /* Summary / Totals block */
         .summary-wrapper {
@@ -447,6 +484,7 @@ export const renderInvoiceHTML = (invoice, template = {}) => {
                 <th>Qty</th>
                 <th>Description / Serial & Warranty</th>
                 <th>Unit Price</th>
+                <th>Discount</th>
                 <th>Total</th>
               </tr>
             </thead>

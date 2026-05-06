@@ -213,10 +213,14 @@ export interface DocumentHeaderPayload {
 
 export interface DocumentLinePayload {
   item_id: string
+  uom_id?: string
   quantity: number
   unit_cost: number
   batch_no?: string
   expiry_date?: string
+  system_qty?: number
+  counted_qty?: number
+  variance_qty?: number
   notes?: string
   // SAP Inspired fields
   tax_code?: string

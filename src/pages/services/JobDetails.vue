@@ -365,7 +365,7 @@
                 icon="add"
                 label="Add Part"
                 size="sm"
-                @click="showPartDialog = true"
+                @click="openPartDialog"
               />
             </div>
 
@@ -769,17 +769,35 @@ const filteredInventoryItems = ref([])
 const useManualItemName = ref(false)
 
 async function loadInventoryItems() {
-  const companyId = authStore.currentBranch?.company_id
-  if (!companyId) return
-  const { data } = await supabase
-    .from('items')
-    .select('id, name, code, sale_price, avg_cost, last_purchase_price')
-    .eq('company_id', companyId)
-    .eq('is_active', true)
-    .order('name')
-    .limit(500)
-  inventoryItems.value = data || []
-  filteredInventoryItems.value = data || []
+  // Retry up to 5 times if company_id isn't ready yet (auth race condition)
+  let retries = 5
+  let companyId = authStore.currentBranch?.company_id
+  while (!companyId && retries > 0) {
+    await new Promise((r) => setTimeout(r, 400))
+    companyId = authStore.currentBranch?.company_id
+    retries--
+  }
+  if (!companyId) {
+    console.warn('[JobDetails] loadInventoryItems: company_id still unavailable after retries')
+    return
+  }
+  try {
+    const { data, error } = await supabase
+      .from('items')
+      .select('id, name, code, sale_price, avg_cost, last_purchase_price')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .order('name')
+      .limit(500)
+    if (error) {
+      console.error('[JobDetails] loadInventoryItems error:', error)
+      return
+    }
+    inventoryItems.value = data || []
+    filteredInventoryItems.value = data || []
+  } catch (err) {
+    console.error('[JobDetails] loadInventoryItems exception:', err)
+  }
 }
 
 function filterInventoryItems(val, update) {
@@ -823,6 +841,14 @@ function switchToSelector() {
   partForm.item_name = ''
   partForm.selectedItem = null
   partForm.unit_price = 0
+}
+
+async function openPartDialog() {
+  showPartDialog.value = true
+  // Ensure inventory items are loaded (re-fetch if empty — handles race condition on first load)
+  if (inventoryItems.value.length === 0) {
+    await loadInventoryItems()
+  }
 }
 
 async function downloadPdf() {

@@ -70,20 +70,28 @@ export const useInvoiceStore = defineStore('invoices', () => {
       // ── STEP 3: Insert items + payment IN PARALLEL ────────────────
       const preparedItems = items
         .filter((i) => i.description)
-        .map((item) => ({
-          invoice_id: invoiceId,
-          product_id: item.product_id || null,
-          description: item.description,
-          item_code: item.item_code || null,
-          qty: Number(item.qty || 0),
-          unit_price: Number(item.unit_price || 0),
-          discount: Number(item.discount || 0),
-          line_total: Number(item.line_total || 0),
-          warranty: item.warranty || null,
-          serial_number: item.serial_number || null,
-          selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
-          cost_unit_price_snapshot: Number(item.cost_price || 0),
-        }))
+        .map((item) => {
+          const base = {
+            invoice_id: invoiceId,
+            product_id: item.product_id || null,
+            description: item.description,
+            item_code: item.item_code || null,
+            qty: Number(item.qty || 0),
+            unit_price: Number(item.unit_price || 0),
+            discount: Number(item.discount || 0),
+            line_total: Number(item.line_total || 0),
+            warranty: item.warranty || null,
+            serial_number: item.serial_number || null,
+            selling_unit_price_snapshot: Number(item.unit_price || item.selling_price || 0),
+            cost_unit_price_snapshot: Number(item.cost_price || 0),
+          }
+          // Only include new columns if they have meaningful values
+          // (They will be ignored by Supabase if the columns don't exist yet,
+          //  but we try-catch below to handle that case)
+          base.discount_type = item.discount_type || 'amount'
+          base.discount_amount = Number(item.discount_amount || item.discount || 0)
+          return base
+        })
 
       const parallelOps = []
 
@@ -91,7 +99,21 @@ export const useInvoiceStore = defineStore('invoices', () => {
       if (preparedItems.length > 0) {
         parallelOps.push(
           supabase.from('invoice_items').insert(preparedItems).then(({ error }) => {
-            if (error) throw error
+            if (error) {
+              // If columns don't exist yet, retry without them
+              if (error.message?.includes('discount_type') || error.message?.includes('discount_amount')) {
+                const fallbackItems = preparedItems.map((item) => {
+                  const rest = { ...item }
+                  delete rest.discount_type
+                  delete rest.discount_amount
+                  return rest
+                })
+                return supabase.from('invoice_items').insert(fallbackItems).then(({ error: e2 }) => {
+                  if (e2) throw e2
+                })
+              }
+              throw error
+            }
           }),
         )
       }
@@ -344,10 +366,38 @@ export const useInvoiceStore = defineStore('invoices', () => {
     const { data: invoice, error: invError } = await supabase
       .from('invoices')
       .select(
-        '*, items:invoice_items(id, invoice_id, product_id, description, item_code, qty, unit_price, discount, line_total, warranty, serial_number, cost_unit_price_snapshot, selling_unit_price_snapshot)',
+        '*, items:invoice_items(id, invoice_id, product_id, description, item_code, qty, unit_price, discount, line_total, warranty, serial_number, cost_unit_price_snapshot, selling_unit_price_snapshot, discount_type, discount_amount)',
       )
       .eq('id', id)
       .single()
+
+    // If select fails due to missing columns, retry without them
+    if (invError && (invError.message?.includes('discount_type') || invError.message?.includes('discount_amount'))) {
+      const { data: fallbackInvoice, error: fallbackErr } = await supabase
+        .from('invoices')
+        .select(
+          '*, items:invoice_items(id, invoice_id, product_id, description, item_code, qty, unit_price, discount, line_total, warranty, serial_number, cost_unit_price_snapshot, selling_unit_price_snapshot)',
+        )
+        .eq('id', id)
+        .single()
+      if (fallbackErr) throw fallbackErr
+      // Add defaults for missing fields
+      if (fallbackInvoice?.items) {
+        fallbackInvoice.items = fallbackInvoice.items.map((i) => ({
+          ...i,
+          discount_type: 'amount',
+          discount_amount: Number(i.discount || 0),
+        }))
+      }
+      // Continue with fallback data
+      const { data: payments } = await supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('invoice_id', id)
+        .order('paid_at', { ascending: false })
+      fallbackInvoice.payments = payments || []
+      return fallbackInvoice
+    }
 
     if (invError) throw invError
 
@@ -461,6 +511,8 @@ export const useInvoiceStore = defineStore('invoices', () => {
         qty: String(Number(item.qty || 0)),
         unit_price: String(Number(item.unit_price || 0)),
         discount: String(Number(item.discount || 0)),
+        discount_type: item.discount_type || 'amount',
+        discount_amount: String(Number(item.discount_amount || item.discount || 0)),
         line_total: String(Number(item.line_total || 0)),
         warranty: item.warranty || null,
         serial_number: item.serial_number || null,
@@ -475,7 +527,12 @@ export const useInvoiceStore = defineStore('invoices', () => {
       //   4. Creates & posts a new GIN for updated items
       const { data, error: rpcError } = await supabase.rpc('update_invoice_v2', {
         p_invoice_id: id,
-        p_items,
+        p_items: p_items.map((item) => {
+          const rest = { ...item }
+          delete rest.discount_type
+          delete rest.discount_amount
+          return rest
+        }),
         p_payload,
       })
 
