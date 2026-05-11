@@ -125,9 +125,9 @@ export const useNotificationStore = defineStore('notifications', () => {
             message: title,
             caption: `${custName} — LKR ${balance.toLocaleString()}`,
             position: 'top-right',
-            timeout: daysLeft <= 0 ? 0 : 8000, // overdue/today = persistent until closed
+            timeout: 5000,
             actions: [{ label: 'Dismiss', color: 'white', handler: () => {} }],
-            progress: daysLeft === 1,
+            progress: true,
             color: daysLeft <= 0 ? 'negative' : 'orange-9',
             textColor: 'white',
           })
@@ -177,8 +177,9 @@ export const useNotificationStore = defineStore('notifications', () => {
                  message: title,
                  caption: message,
                  position: 'top-right',
-                 timeout: item.stock_status === 'out_of_stock' ? 0 : 8000,
+                 timeout: 5000,
                  actions: [{ label: 'Dismiss', color: 'white', handler: () => {} }],
+                 progress: true,
                  color: item.stock_status === 'out_of_stock' ? 'negative' : 'orange-9',
                  textColor: 'white'
               })

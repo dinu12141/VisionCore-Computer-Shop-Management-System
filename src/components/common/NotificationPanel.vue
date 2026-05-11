@@ -2,8 +2,7 @@
   <q-btn flat round dense icon="notifications" class="q-mr-sm">
     <q-badge v-if="unreadCount > 0" color="red" floating>{{ unreadCount }}</q-badge>
     <q-menu
-      fit
-      anchor="bottom left"
+      anchor="bottom right"
       self="top right"
       class="notification-panel"
       style="width: 370px"
@@ -82,15 +81,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useNotificationStore } from 'src/stores/notifications'
+import { storeToRefs } from 'pinia'
 
 const $q = useQuasar()
 const store = useNotificationStore()
 
-const notifications = computed(() => store.notifications)
-const unreadCount = computed(() => store.unreadCount)
+const { notifications, unreadCount } = storeToRefs(store)
 
 function markRead(id) {
   store.markRead(id)
