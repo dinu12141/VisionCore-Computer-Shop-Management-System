@@ -54,8 +54,19 @@ export default defineConfig((ctx) => {
       // polyfillModulePreload: true,
       // distDir
 
-      // extendViteConf (viteConf) {},
-      // viteVuePluginOptions: {},
+      extendViteConf(viteConf) {
+        if (ctx.prod) {
+          viteConf.build = viteConf.build ?? {}
+          // No source maps in production — prevents reverse-engineering of business logic
+          viteConf.build.sourcemap = false
+          // Explicit minification (esbuild is fast and strips console.* in prod)
+          viteConf.build.minify = 'esbuild'
+          viteConf.esbuild = {
+            ...(viteConf.esbuild ?? {}),
+            drop: ['console', 'debugger'],
+          }
+        }
+      },
 
       vitePlugins: [
         [

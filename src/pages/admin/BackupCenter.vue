@@ -264,25 +264,22 @@ const BACKUP_TABLES = [
   'companies',
   'branches',
   'item_categories',
-  'units_of_measure',
+  'uom',                       // was: units_of_measure
   'items',
   'warehouses',
-  'item_warehouse_stock',
+  'stock_on_hand',             // was: item_warehouse_stock
+  'item_warehouse_settings',
   'suppliers',
   'customers',
   'inventory_documents',
   'inventory_document_lines',
+  'inventory_ledger',
   'service_jobs',
-  'service_job_parts',
+  'service_parts_used',        // was: service_job_parts
   'invoices',
   'invoice_items',
+  'invoice_payments',
   'payments',
-  'expense_categories',
-  'expenses',
-  'employees',
-  'attendance_records',
-  'payroll_records',
-  'commission_packages',
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

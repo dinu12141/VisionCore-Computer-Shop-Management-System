@@ -186,7 +186,6 @@ import { ref, onMounted, computed } from 'vue'
 import { useQuasar, date } from 'quasar'
 import { useDashboardStore } from 'src/stores/dashboard'
 import { useAuthStore } from 'src/stores/auth'
-import { supabase } from 'src/boot/supabase'
 
 // Components
 import KpiCard from 'components/dashboard/KpiCard.vue'
@@ -346,38 +345,10 @@ function setDateRange(type) {
 }
 
 async function fetchRecentActivity() {
-  const companyId = authStore.currentBranch?.company_id
-  if (!companyId) return
-
-  // Fetch parallel
-  const [invoices, payments, customers] = await Promise.all([
-    supabase
-      .from('invoices')
-      .select('id, invoice_no, customer_name:customer_snapshot->>name, total, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(10),
-    supabase
-      .from('invoice_payments')
-      .select('id, amount, method, paid_at, invoices(invoice_no)')
-      .eq('company_id', companyId)
-      .order('paid_at', { ascending: false })
-      .limit(10),
-    supabase
-      .from('customers')
-      .select('id, name, phone, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(10),
-  ])
-
-  recentInvoices.value = invoices.data || []
-  recentPayments.value = (payments.data || []).map((p) => ({
-    ...p,
-    invoice_no: p.invoices?.invoice_no,
-    created_at: p.paid_at,
-  }))
-  recentCustomers.value = customers.data || []
+  const result = await store.fetchRecentActivity()
+  recentInvoices.value = result.invoices
+  recentPayments.value = result.payments
+  recentCustomers.value = result.customers
 }
 
 function openPaymentDialog(invoice) {

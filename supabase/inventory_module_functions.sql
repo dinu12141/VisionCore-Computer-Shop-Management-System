@@ -671,7 +671,7 @@ DROP VIEW IF EXISTS v_low_stock_alerts CASCADE;
 DROP VIEW IF EXISTS v_stock_on_hand CASCADE;
 DROP VIEW IF EXISTS v_inventory_ledger CASCADE;
 
-CREATE OR REPLACE VIEW v_stock_on_hand AS
+CREATE OR REPLACE VIEW v_stock_on_hand WITH (security_invoker = true) AS
 SELECT
     soh.company_id,
     soh.warehouse_id,
@@ -709,11 +709,11 @@ LEFT JOIN item_warehouse_settings iws
     ON iws.item_id = soh.item_id
    AND iws.warehouse_id = soh.warehouse_id;
 
-CREATE OR REPLACE VIEW v_low_stock_alerts AS
+CREATE OR REPLACE VIEW v_low_stock_alerts WITH (security_invoker = true) AS
 SELECT * FROM v_stock_on_hand
 WHERE stock_status IN ('low_stock', 'out_of_stock');
 
-CREATE OR REPLACE VIEW v_inventory_ledger AS
+CREATE OR REPLACE VIEW v_inventory_ledger WITH (security_invoker = true) AS
 SELECT
     il.id,
     il.company_id,

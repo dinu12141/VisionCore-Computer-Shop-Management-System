@@ -150,9 +150,11 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { supabase } from 'src/boot/supabase'
+import { useDashboardStore } from 'src/stores/dashboard'
 import PageHeader from 'src/components/common/PageHeader.vue'
 import InvoicePrint from 'src/components/billing/InvoicePrint.vue'
+
+const dashStore = useDashboardStore()
 
 // Date handling (Today default)
 const selectedDate = ref(new Date().toISOString().split('T')[0].replace(/-/g, '/'))
@@ -206,16 +208,8 @@ async function fetchReport() {
 
   try {
     // 1. Fetch Invoices for the date
-    const { data: invData, error: invError } = await supabase
-      .from('invoices')
-      .select('*, invoice_items(*)')
-      .gte('created_at', `${dateStr}T00:00:00`)
-      .lte('created_at', `${dateStr}T23:59:59`)
-      .order('created_at', { ascending: false })
-
-    if (invError) throw invError
-
-    invoices.value = invData || []
+    const invData = await dashStore.fetchDailySalesReport(dateStr)
+    invoices.value = invData
 
     // 2. Calculate summary
     let rev = 0

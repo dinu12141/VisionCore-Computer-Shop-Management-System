@@ -217,25 +217,17 @@ export const useGlobalSearchStore = defineStore('globalSearch', () => {
       .or(`name.ilike.${pat},code.ilike.${pat}`)
       .limit(limit)
 
-    // Step B: items where any serial in the serials JSONB array matches the query
-    // PostgREST doesn't support column::type casting, so search the synced
-    // item_serials table instead (populated by trg_sync_serials trigger)
-    const { data: serialHitItems } = await supabase
-      .from('item_serials')
-      .select('item_id')
+    // Step B: items where the serials JSONB array contains a matching serial number.
+    // Serials are stored as items.serials (JSONB array of strings) — no item_serials table.
+    // Since JSON stores each serial as a quoted string like ["SN-001","SN-002"],
+    // an ilike filter on the raw column text representation works for partial matches.
+    // e.g. searching "SN-00" matches `%"SN-00%` inside the serialised JSONB text.
+    const { data: serialMatchItems } = await supabase
+      .from('items')
+      .select('id, name, code, serials')
       .eq('company_id', companyId)
-      .ilike('serial_number', pat)
+      .ilike('serials', `%"${q}%`)      // matches quoted serial strings inside the JSON
       .limit(10)
-
-    const serialItemIds = [...new Set((serialHitItems || []).map((s: any) => s.item_id))]
-    let serialMatchItems: typeof nameCodeItems = []
-    if (serialItemIds.length > 0) {
-      const { data: matchedItems } = await supabase
-        .from('items')
-        .select('id, name, code, serials')
-        .in('id', serialItemIds)
-      serialMatchItems = matchedItems || []
-    }
 
     // Merge both result sets (dedupe by id)
     const allItemMap = new Map<string, NonNullable<typeof nameCodeItems>[number]>()

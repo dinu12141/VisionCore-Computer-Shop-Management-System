@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from 'src/boot/supabase'
+import { useAuthStore } from 'src/stores/auth'
 
 export const useSalesStore = defineStore('sales', {
   state: () => ({
@@ -33,26 +34,32 @@ export const useSalesStore = defineStore('sales', {
 
       this.loading = true
       try {
-        // Find SN in database
-        const { data, error } = await supabase
-          .from('item_serials')
-          .select('*, item:items(*)')
-          .eq('serial_number', serialNumber)
-          .eq('status', 'available')
-          .single()
+        const authStore = useAuthStore()
+        const companyId = authStore.currentBranch?.company_id
+        if (!companyId) throw new Error('No company context. Please log in again.')
 
-        if (error || !data) {
-          throw new Error('Serial number not found or already sold.')
+        // Find SN in items.serials JSONB array (no item_serials table exists)
+        const { data, error } = await supabase
+          .from('items')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('is_active', true)
+          .contains('serials', [{ sn: serialNumber }])
+          .maybeSingle()
+
+        if (error) throw error
+        if (!data) {
+          throw new Error('Serial not found or item inactive.')
         }
 
         const product = {
-          id: data.item.id,
-          name: data.item.name,
-          price: data.item.sale_price
-            ? parseFloat(data.item.sale_price)
-            : parseFloat(data.item.last_purchase_price || 0) * 1.25,
-          category: data.item.category || 'Hardware',
-          warranty: data.item.warranty || '',
+          id: data.id,
+          name: data.name,
+          price: data.sale_price
+            ? parseFloat(data.sale_price)
+            : parseFloat(data.last_purchase_price || 0) * 1.25,
+          category: data.category || 'Hardware',
+          warranty: data.warranty || '',
         }
 
         this.addItem(product, null, serialNumber)

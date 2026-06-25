@@ -1098,7 +1098,22 @@ export function useStockDashboard() {
     }
   }
 
-  return { stockOnHand, lowStockAlerts, stats, loading, fetchStockOnHand }
+  function cleanup() {
+    if (channel) {
+      supabase.removeChannel(channel)
+      channel = null
+    }
+    if (docChannel) {
+      supabase.removeChannel(docChannel)
+      docChannel = null
+    }
+    if (itemChannel) {
+      supabase.removeChannel(itemChannel)
+      itemChannel = null
+    }
+  }
+
+  return { stockOnHand, lowStockAlerts, stats, loading, fetchStockOnHand, cleanup }
 }
 
 /* ====================================================================
@@ -1173,12 +1188,70 @@ export function useStockLedger() {
     }
   }
 
-  return { entries, loading, fetchLedger }
+  function cleanup() {
+    if (channel) {
+      supabase.removeChannel(channel)
+      channel = null
+    }
+  }
+
+  return { entries, loading, fetchLedger, cleanup }
 }
 
 /* ====================================================================
    14.  DASHBOARD STATS (aggregated via RPC or simple queries)
 ==================================================================== */
+
+/* ====================================================================
+   SERIAL STOCK HELPERS  (used by AddSerialStock.vue)
+==================================================================== */
+
+/**
+ * Fetch lightweight item list (id, name, code) for the serial-stock picker.
+ * Returns only active items scoped to the current company.
+ */
+export async function fetchActiveItems(): Promise<{ id: string; name: string; code: string }[]> {
+  const companyId = getCompanyId()
+  if (!companyId) throw new Error('No company context — please log in.')
+  const { data, error } = await supabase
+    .from('items')
+    .select('id, name, code')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Fetch an item's current serials JSONB array, inventory_uom_id and avg_cost.
+ * Used before merging new serial numbers.
+ */
+export async function fetchItemSerialsAndUom(
+  itemId: string,
+): Promise<{ serials: string[]; inventory_uom_id: string | null; avg_cost: number }> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('serials, inventory_uom_id, avg_cost')
+    .eq('id', itemId)
+    .single()
+  if (error) throw error
+  return {
+    serials: Array.isArray(data.serials) ? data.serials : [],
+    inventory_uom_id: data.inventory_uom_id ?? null,
+    avg_cost: Number(data.avg_cost || 0),
+  }
+}
+
+/**
+ * Overwrite the serials JSONB on an item row.
+ * This bypass is intentional — updateItem() whitelist excludes `serials`
+ * to prevent accidental overwrites during normal item edits.
+ */
+export async function updateItemSerials(itemId: string, serials: string[]): Promise<void> {
+  const { error } = await supabase.from('items').update({ serials }).eq('id', itemId)
+  if (error) throw error
+}
 
 export async function fetchDashboardStats() {
   const companyId = getCompanyId()

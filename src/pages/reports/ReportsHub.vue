@@ -510,11 +510,13 @@ import { ref, computed, onMounted, defineComponent, h } from 'vue'
 import { useQuasar, date } from 'quasar'
 import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from 'src/stores/auth'
+import { useReportStore } from 'src/stores/reportStore'
 import ExportButton from 'src/components/common/ExportButton.vue'
 import { useSupplierList, useItemsList, useDocumentList } from 'src/services/inventoryService'
 
 const $q = useQuasar()
 const auth = useAuthStore()
+const reportStore = useReportStore()
 const tab = ref('suppliers')
 
 const getCompanyId = () => auth.currentBranch?.company_id
@@ -1102,21 +1104,11 @@ const financeCols = [
 ]
 
 async function loadFinance() {
-  const companyId = getCompanyId()
-  if (!companyId) return
+  if (!getCompanyId()) return
   financeLoading.value = true
   try {
     const { from, to } = getRange(financeRange.value)
-    const { data } = await supabase
-      .from('invoices')
-      .select(
-        'id, invoice_no, total, paid_amount, balance, payment_type, payment_status, customer_snapshot, created_at',
-      )
-      .eq('company_id', companyId)
-      .gte('created_at', from + 'T00:00:00')
-      .lte('created_at', to + 'T23:59:59')
-      .order('created_at', { ascending: false })
-    financeInvoices.value = data || []
+    financeInvoices.value = await reportStore.fetchFinanceInvoices(from, to)
   } finally {
     financeLoading.value = false
   }

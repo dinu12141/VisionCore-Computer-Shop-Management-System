@@ -374,12 +374,14 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar, date } from 'quasar'
-import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from 'src/stores/auth'
+import { useReportStore } from 'src/stores/reportStore'
+import { supabase } from 'src/boot/supabase'
 import ExportButton from 'src/components/common/ExportButton.vue'
 
 const $q = useQuasar()
 const auth = useAuthStore()
+const reportStore = useReportStore()
 const loading = ref(false)
 const serviceLoading = ref(false)
 const activeTab = ref('overview')
@@ -661,21 +663,14 @@ async function fetchAll() {
   serviceLoading.value = true
 
   try {
-    // 1. All invoices in range
-    const { data: invData } = await supabase
-      .from('invoices')
-      .select(
-        'id, invoice_no, total, paid_amount, balance, payment_type, payment_status, customer_snapshot, created_at',
-      )
-      .eq('company_id', companyId)
-      .gte('created_at', from + 'T00:00:00')
-      .lte('created_at', to + 'T23:59:59')
-      .order('created_at', { ascending: true })
-    invoices.value = invData || []
+    // 1 + 3. Fetch invoices and invoice_items via store
+    const { invoices: invData, invoiceItems: itemData } =
+      await reportStore.fetchSalesReportData(from, to)
+    invoices.value = invData
 
     // 2. Daily revenue for chart
     const daily = {}
-    ;(invData || []).forEach((inv) => {
+    invData.forEach((inv) => {
       const day = inv.created_at?.slice(0, 10)
       if (!day) return
       daily[day] = (daily[day] || 0) + Number(inv.total || 0)
@@ -684,15 +679,9 @@ async function fetchAll() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, revenue]) => ({ day, revenue }))
 
-    // 3. Item sales — from invoice_items
-    const { data: itemData } = await supabase
-      .from('invoice_items')
-      .select('description, qty, line_total, invoice:invoices!inner(company_id, created_at)')
-      .eq('invoice.company_id', companyId)
-      .gte('invoice.created_at', from + 'T00:00:00')
-      .lte('invoice.created_at', to + 'T23:59:59')
+    // 3. Item sales — aggregated from invoice_items
     const itemMap = {}
-    ;(itemData || []).forEach((r) => {
+    itemData.forEach((r) => {
       const key = r.description || 'Unknown'
       if (!itemMap[key]) itemMap[key] = { item_name: key, qty_sold: 0, revenue: 0 }
       itemMap[key].qty_sold += Number(r.qty || 0)
@@ -702,7 +691,7 @@ async function fetchAll() {
 
     // 4. Customer sales — from invoices customer_snapshot
     const custMap = {}
-    ;(invData || []).forEach((inv) => {
+    invData.forEach((inv) => {
       const name = inv.customer_snapshot?.name || 'Walk-in'
       if (!custMap[name])
         custMap[name] = { customer_name: name, invoice_count: 0, revenue: 0, balance: 0 }

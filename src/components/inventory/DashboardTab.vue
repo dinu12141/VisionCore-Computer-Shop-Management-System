@@ -126,7 +126,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import StatCard from 'components/common/StatCard.vue'
 import StockAlertCard from 'components/inventory/StockAlertCard.vue'
 import { useAuthStore } from 'src/stores/auth'
@@ -139,7 +139,12 @@ const {
   stats,
   loading: stockLoading,
   fetchStockOnHand,
+  cleanup,
 } = useStockDashboard()
+
+onUnmounted(() => {
+  cleanup()
+})
 
 const warehouseSummary = computed(() => {
   const grouped = {}

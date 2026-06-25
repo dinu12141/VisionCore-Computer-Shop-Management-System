@@ -754,7 +754,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useServiceStore } from 'src/stores/serviceStore'
 import { useAuthStore } from 'src/stores/auth'
-import { supabase } from 'src/boot/supabase'
 import { downloadServiceJobPDF } from 'src/services/serviceReportPdf'
 
 const $q = useQuasar()
@@ -771,30 +770,18 @@ const useManualItemName = ref(false)
 async function loadInventoryItems() {
   // Retry up to 5 times if company_id isn't ready yet (auth race condition)
   let retries = 5
-  let companyId = authStore.currentBranch?.company_id
-  while (!companyId && retries > 0) {
+  while (!authStore.currentBranch?.company_id && retries > 0) {
     await new Promise((r) => setTimeout(r, 400))
-    companyId = authStore.currentBranch?.company_id
     retries--
   }
-  if (!companyId) {
+  if (!authStore.currentBranch?.company_id) {
     console.warn('[JobDetails] loadInventoryItems: company_id still unavailable after retries')
     return
   }
   try {
-    const { data, error } = await supabase
-      .from('items')
-      .select('id, name, code, sale_price, avg_cost, last_purchase_price')
-      .eq('company_id', companyId)
-      .eq('is_active', true)
-      .order('name')
-      .limit(500)
-    if (error) {
-      console.error('[JobDetails] loadInventoryItems error:', error)
-      return
-    }
-    inventoryItems.value = data || []
-    filteredInventoryItems.value = data || []
+    const data = await store.fetchInventoryItems()
+    inventoryItems.value = data
+    filteredInventoryItems.value = data
   } catch (err) {
     console.error('[JobDetails] loadInventoryItems exception:', err)
   }

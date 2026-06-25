@@ -167,9 +167,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from 'src/stores/auth'
+import { useServiceStore } from 'src/stores/serviceStore'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+const serviceStore = useServiceStore()
 const loading = ref(true)
 const period = ref('month')
 
@@ -292,12 +294,9 @@ async function loadData() {
       .sort((a, b) => b.days_overdue - a.days_overdue)
 
     // Common issues
-    const { data: diag } = await supabase
-      .from('service_diagnosis_items')
-      .select('error_title, category')
-      .eq('company_id', companyId)
+    const diag = await serviceStore.fetchCommonIssues()
     const issueMap = {}
-    ;(diag || []).forEach((d) => {
+    diag.forEach((d) => {
       const key = d.error_title
       if (!issueMap[key]) issueMap[key] = { title: key, category: d.category, count: 0 }
       issueMap[key].count++

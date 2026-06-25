@@ -134,6 +134,67 @@ export const useReportStore = defineStore('reports', {
       return status
     },
 
+    /**
+     * Fetch invoice finance summary for the ReportsHub finance tab.
+     * Returns invoices with totals, payment status and customer snapshot.
+     */
+    async fetchFinanceInvoices(fromDate, toDate) {
+      this.loading = true
+      try {
+        const auth = useAuthStore()
+        const companyId = auth.currentBranch?.company_id
+        if (!companyId) return []
+
+        const { data } = await supabase
+          .from('invoices')
+          .select(
+            'id, invoice_no, total, paid_amount, balance, payment_type, payment_status, customer_snapshot, created_at',
+          )
+          .eq('company_id', companyId)
+          .gte('created_at', fromDate + 'T00:00:00')
+          .lte('created_at', toDate + 'T23:59:59')
+          .order('created_at', { ascending: false })
+
+        return data || []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Fetch sales report data for the SalesReport page:
+     * invoices + daily revenue aggregation + invoice_items for item-level breakdown.
+     * Returns { invoices, invoiceItems }.
+     */
+    async fetchSalesReportData(fromDate, toDate) {
+      const auth = useAuthStore()
+      const companyId = auth.currentBranch?.company_id
+      if (!companyId) return { invoices: [], invoiceItems: [] }
+
+      const [invRes, itemRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select(
+            'id, invoice_no, total, paid_amount, balance, payment_type, payment_status, customer_snapshot, created_at',
+          )
+          .eq('company_id', companyId)
+          .gte('created_at', fromDate + 'T00:00:00')
+          .lte('created_at', toDate + 'T23:59:59')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('invoice_items')
+          .select('description, qty, line_total, invoice:invoices!inner(company_id, created_at)')
+          .eq('invoice.company_id', companyId)
+          .gte('invoice.created_at', fromDate + 'T00:00:00')
+          .lte('invoice.created_at', toDate + 'T23:59:59'),
+      ])
+
+      return {
+        invoices: invRes.data || [],
+        invoiceItems: itemRes.data || [],
+      }
+    },
+
     setupRealtime(type, fromDate, toDate, filters = {}) {
       const channel = supabase
         .channel(`report-${type}-realtime`)

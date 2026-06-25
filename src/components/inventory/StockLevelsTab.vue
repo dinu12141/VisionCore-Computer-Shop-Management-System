@@ -127,10 +127,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStockDashboard, useWarehouseList } from 'src/services/inventoryService'
 
-const { stockOnHand, loading, fetchStockOnHand } = useStockDashboard()
+const { stockOnHand, loading, fetchStockOnHand, cleanup } = useStockDashboard()
 const { warehouses, listWarehouses } = useWarehouseList()
 
 const search = ref('')
@@ -140,6 +140,10 @@ const statusFilter = ref(null)
 onMounted(() => {
   fetchStockOnHand()
   listWarehouses()
+})
+
+onUnmounted(() => {
+  cleanup()
 })
 
 const warehouseOptions = computed(() => [

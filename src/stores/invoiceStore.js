@@ -474,34 +474,35 @@ export const useInvoiceStore = defineStore('invoices', () => {
       if (!companyId) throw new Error('Company ID missing')
 
       // Build payload matching what update_invoice_v2 expects
+      const _total      = Number(invoiceData.total || 0)
+      const _paid       = Number(invoiceData.paid_amount || 0)
+      const _balance    = Math.max(0, Math.round((_total - _paid) * 100) / 100)
+      const _payStatus  = _balance <= 0 && _total > 0 ? 'paid'
+                        : _paid > 0 && _balance > 0   ? 'partial'
+                        : 'unpaid'
+
       const p_payload = {
-        customer_id: invoiceData.customer_id || null,
-        status: invoiceData.status || 'issued',
-        payment_type: invoiceData.payment_type || 'cash',
-        subtotal: String(Number(invoiceData.subtotal || 0)),
-        discount: String(Number(invoiceData.discount || 0)),
-        tax: String(Number(invoiceData.tax || 0)),
-        total: String(Number(invoiceData.total || 0)),
-        paid_amount: String(Number(invoiceData.paid_amount || 0)),
-        balance: String(
-          Math.max(
-            0,
-            Math.round(
-              (Number(invoiceData.total || 0) - Number(invoiceData.paid_amount || 0)) * 100,
-            ) / 100,
-          ),
-        ),
+        customer_id:       invoiceData.customer_id || null,
+        status:            invoiceData.status || 'issued',
+        payment_type:      invoiceData.payment_type || 'cash',
+        subtotal:          String(Number(invoiceData.subtotal || 0)),
+        discount:          String(Number(invoiceData.discount || 0)),
+        tax:               String(Number(invoiceData.tax || 0)),
+        total:             String(_total),
+        paid_amount:       String(_paid),
+        balance:           String(_balance),
+        payment_status:    _payStatus,
         customer_snapshot: invoiceData.customer_snapshot || {},
-        notes: invoiceData.notes || null,
-        collection_date: invoiceData.collection_date || null,
-        invoice_date: invoiceData.invoice_date || null,
-        is_vat_invoice: String(!!invoiceData.is_vat_invoice),
-        vat_amount: String(Number(invoiceData.vat_amount || 0)),
-        total_before_vat: String(Number(invoiceData.total_before_vat || 0)),
+        notes:             invoiceData.notes || null,
+        collection_date:   invoiceData.collection_date || null,
+        invoice_date:      invoiceData.invoice_date || null,
+        is_vat_invoice:    String(!!invoiceData.is_vat_invoice),
+        vat_amount:        String(Number(invoiceData.vat_amount || 0)),
+        total_before_vat:  String(Number(invoiceData.total_before_vat || 0)),
         is_service_invoice: String(!!invoiceData.is_service_invoice),
-        service_job_id: invoiceData.service_job_id || null,
-        customer_po_no: invoiceData.customer_po_no || null,
-        created_by: invoiceData.created_by || null,
+        service_job_id:    invoiceData.service_job_id || null,
+        customer_po_no:    invoiceData.customer_po_no || null,
+        created_by:        invoiceData.created_by || null,
       }
 
       const p_items = items.map((item) => ({
@@ -522,17 +523,12 @@ export const useInvoiceStore = defineStore('invoices', () => {
 
       // update_invoice_v2 atomically:
       //   1. Cancels the existing posted GIN (reverses stock)
-      //   2. Updates invoice header
-      //   3. Replaces invoice_items
+      //   2. Updates invoice header (incl. payment_status recalculation)
+      //   3. Replaces invoice_items (with discount_type/discount_amount)
       //   4. Creates & posts a new GIN for updated items
       const { data, error: rpcError } = await supabase.rpc('update_invoice_v2', {
         p_invoice_id: id,
-        p_items: p_items.map((item) => {
-          const rest = { ...item }
-          delete rest.discount_type
-          delete rest.discount_amount
-          return rest
-        }),
+        p_items,        // pass as-is — discount_type/discount_amount handled by SQL
         p_payload,
       })
 

@@ -531,6 +531,36 @@ export const useServiceStore = defineStore('services', () => {
     return true
   }
 
+  // ─── INVENTORY ITEMS (for part picker in JobDetails) ──────────────────
+  async function fetchInventoryItems() {
+    const companyId = getCompanyId()
+    if (!companyId) {
+      console.warn('[ServiceStore] fetchInventoryItems: company_id unavailable')
+      return []
+    }
+    const { data, error } = await supabase
+      .from('items')
+      .select('id, name, code, sale_price, avg_cost, last_purchase_price')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .order('name')
+      .limit(500)
+    if (error) throw error
+    return data || []
+  }
+
+  // ─── COMMON ISSUES (for ServiceReports analytics) ─────────────────────
+  async function fetchCommonIssues() {
+    const companyId = getCompanyId()
+    if (!companyId) return []
+    const { data, error } = await supabase
+      .from('service_diagnosis_items')
+      .select('error_title, category')
+      .eq('company_id', companyId)
+    if (error) throw error
+    return data || []
+  }
+
   // ─── ISSUE TEMPLATES ────────────────────────────────────────────────────
   async function fetchIssueTemplates() {
     const companyId = getCompanyId()
@@ -587,5 +617,7 @@ export const useServiceStore = defineStore('services', () => {
     deleteJob,
     fetchIssueTemplates,
     recalcCosts,
+    fetchInventoryItems,
+    fetchCommonIssues,
   }
 })

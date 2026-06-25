@@ -141,10 +141,14 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useStockLedger } from 'src/services/inventoryService'
 
-const { entries, loading, fetchLedger } = useStockLedger()
+const { entries, loading, fetchLedger, cleanup } = useStockLedger()
+
+onUnmounted(() => {
+  cleanup()
+})
 
 const search = ref('')
 const docTypeFilter = ref('')

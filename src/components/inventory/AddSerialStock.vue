@@ -151,9 +151,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
-import { supabase } from 'src/boot/supabase'
 import { useAuthStore } from 'src/stores/auth'
-import { createDocument, postDocument } from 'src/services/inventoryService'
+import {
+  createDocument,
+  postDocument,
+  fetchActiveItems,
+  fetchItemSerialsAndUom,
+  updateItemSerials,
+} from 'src/services/inventoryService'
+import { supabase } from 'src/boot/supabase'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -176,23 +182,8 @@ const searchString = ref('')
 async function fetchProducts() {
   loadingProducts.value = true
   try {
-    const companyId =
-      authStore.currentBranch?.company_id ||
-      authStore.user?.user_metadata?.company_id ||
-      authStore.profile?.company_id
-    if (!companyId) {
-      $q.notify({ type: 'warning', message: 'No company context. Please select a branch.' })
-      return
-    }
-    const { data, error } = await supabase
-      .from('items')
-      .select('id, name, code')
-      .eq('company_id', companyId)
-      .eq('is_active', true)
-      .order('name')
-
-    if (error) throw error
-    rawProducts.value = data || []
+    const data = await fetchActiveItems()
+    rawProducts.value = data
     productOptions.value = rawProducts.value.map((p) => ({
       label: `${p.name} (${p.code})`,
       value: p.id,
@@ -318,16 +309,11 @@ async function saveItems() {
     const productId = selectedProduct.value.value
 
     // ── 1. Fetch current item serials + UOM + avg_cost ─────────────────────
-    const { data: item, error: fetchErr } = await supabase
-      .from('items')
-      .select('serials, inventory_uom_id, avg_cost')
-      .eq('id', productId)
-      .single()
+    const item = await fetchItemSerialsAndUom(productId)
 
-    if (fetchErr) throw fetchErr
     if (!item.inventory_uom_id) throw new Error('Item has no UOM configured. Cannot create stock adjustment.')
 
-    const existingSerials = Array.isArray(item.serials) ? item.serials : []
+    const existingSerials = item.serials
 
     // ── 2. Merge serials — skip duplicates ─────────────────────────────────
     const newUnique = serials.value.filter((sn) => !existingSerials.includes(sn))
@@ -341,12 +327,7 @@ async function saveItems() {
     // ── 3. Update items.serials JSONB directly ─────────────────────────────
     // (updateItem() whitelist intentionally excludes serials to prevent
     //  accidental overwrite during normal item edits — update directly here)
-    const { error: updateErr } = await supabase
-      .from('items')
-      .update({ serials: mergedSerials })
-      .eq('id', productId)
-
-    if (updateErr) throw updateErr
+    await updateItemSerials(productId, mergedSerials)
 
     // ── 4. Get default active warehouse ────────────────────────────────────
     const { data: wh, error: whErr } = await supabase

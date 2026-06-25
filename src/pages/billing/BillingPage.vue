@@ -492,8 +492,16 @@ onMounted(async () => {
     try {
       const inv = await invoiceStore.getInvoice(editId.value)
       existingInvoiceNo.value = inv.invoice_no
-      selectedCustomerId.value = inv.customer_id
       invoiceTitleOption.value = inv.customer_snapshot?.title || null
+
+      // Fetch customers so the dropdown can display the selected name
+      await customerStore.fetchCustomers()
+      if (inv.customer_id) {
+        selectedCustomerId.value = inv.customer_id
+        // Ensure the customer appears in the dropdown options
+        const found = customerStore.customers.find((c) => c.id === inv.customer_id)
+        if (found) customerOptions.value = [found]
+      }
 
       // Map basic form fields
       form.payment_type = inv.payment_type || 'cash'

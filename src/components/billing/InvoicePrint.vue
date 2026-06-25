@@ -39,6 +39,16 @@
         </div>
 
         <q-btn
+          v-if="authStore.isAdmin && activeInvoice"
+          unelevated
+          color="white"
+          text-color="blue"
+          icon="edit"
+          label="Edit"
+          class="q-mr-sm"
+          @click="handleEdit"
+        />
+        <q-btn
           unelevated
           color="white"
           text-color="primary"
@@ -79,9 +89,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useInvoiceStore } from 'src/stores/invoiceStore'
+import { useAuthStore } from 'src/stores/auth'
 import { renderInvoiceHTML } from 'src/utils/renderInvoiceHTML'
 import { printHTML } from 'src/utils/printHelper'
 import { downloadInvoicePDF } from 'src/utils/downloadInvoicePDF'
@@ -94,7 +105,9 @@ const props = defineProps({
 
 const $q = useQuasar()
 const route = useRoute()
+const router = useRouter()
 const invoiceStore = useInvoiceStore()
+const authStore = useAuthStore()
 const localInvoice = ref(null)
 const loading = ref(false)
 const downloading = ref(false)
@@ -153,6 +166,12 @@ onMounted(async () => {
     }
   }
 })
+
+function handleEdit() {
+  if (!activeInvoice.value?.id) return
+  dialogRef.value?.hide()
+  router.push(`/billing?editId=${activeInvoice.value.id}`)
+}
 
 function handlePrint() {
   printHTML(renderedHtml.value)

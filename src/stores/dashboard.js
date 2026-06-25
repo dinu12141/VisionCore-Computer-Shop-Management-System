@@ -159,5 +159,67 @@ export const useDashboardStore = defineStore('dashboard', {
       if (error) throw error
       this.paymentMethods = data
     },
+
+    /**
+     * Fetch the recent-activity feed shown on the main dashboard:
+     * last 10 invoices, last 10 payments, last 10 new customers.
+     */
+    async fetchRecentActivity() {
+      const auth = useAuthStore()
+      const companyId = auth.currentBranch?.company_id
+      if (!companyId) return { invoices: [], payments: [], customers: [] }
+
+      const [invoices, payments, customers] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, invoice_no, customer_name:customer_snapshot->>name, total, created_at')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('invoice_payments')
+          .select('id, amount, method, paid_at, invoices(invoice_no)')
+          .eq('company_id', companyId)
+          .order('paid_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('customers')
+          .select('id, name, phone, created_at')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ])
+
+      return {
+        invoices: invoices.data || [],
+        payments: (payments.data || []).map((p) => ({
+          ...p,
+          invoice_no: p.invoices?.invoice_no,
+          created_at: p.paid_at,
+        })),
+        customers: customers.data || [],
+      }
+    },
+
+    /**
+     * Fetch all invoices (with line items) for a single calendar date.
+     * Used by SalesReportPage to produce a daily sales summary.
+     */
+    async fetchDailySalesReport(dateStr) {
+      const auth = useAuthStore()
+      const companyId = auth.currentBranch?.company_id
+      if (!companyId) return []
+
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*, invoice_items(*)')
+        .eq('company_id', companyId)
+        .gte('created_at', `${dateStr}T00:00:00`)
+        .lte('created_at', `${dateStr}T23:59:59`)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
   },
 })
