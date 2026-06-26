@@ -515,7 +515,11 @@ onMounted(async () => {
       form.invoice_date = inv.invoice_date || currentDate
       form.customer_po_no = inv.customer_po_no || ''
 
-      // Map items
+      // Map service invoice fields
+      form.is_service_invoice = !!inv.is_service_invoice
+      form.service_job_id = inv.service_job_id || null
+
+      // Map items — preserve all snapshot and discount fields for re-editing
       items.value = (inv.items || []).map((i) => ({
         product_id: i.product_id,
         description: i.description,
@@ -524,9 +528,12 @@ onMounted(async () => {
         unit_price: i.unit_price,
         discount: i.discount,
         discount_type: i.discount_type || 'amount',
+        discount_amount: Number(i.discount_amount ?? i.discount ?? 0),
         line_total: i.line_total,
         warranty: i.warranty,
         serial_number: i.serial_number,
+        cost_price: Number(i.cost_unit_price_snapshot ?? 0),
+        selling_price: Number(i.selling_unit_price_snapshot ?? i.unit_price ?? 0),
       }))
 
       if (inv.customer_snapshot && !inv.customer_id) {
