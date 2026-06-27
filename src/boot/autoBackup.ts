@@ -36,8 +36,15 @@ const BACKUP_TABLES = [
   'service_parts_used',     // was: service_job_parts (wrong name)
   'invoices',
   'invoice_items',
-  'payments',
+  'invoice_payments',
 ]
+
+const TABLES_WITHOUT_COMPANY_ID = new Set([
+  'companies',
+  'item_warehouse_settings',
+  'inventory_document_lines',
+  'invoice_items',
+])
 
 const LS_KEY = 'visioncore_backup_history'
 const LS_DATE_KEY = 'visioncore_last_backup_date'
@@ -72,10 +79,7 @@ async function fetchTable(
   companyId: string | null,
 ): Promise<unknown[]> {
   try {
-    // Probe once to know if this table has a company_id column
-    const { data: probe } = await supabase.from(table).select('company_id').limit(1)
-    const hasCompanyId =
-      companyId && table !== 'companies' && probe?.[0] && 'company_id' in probe[0]
+    const hasCompanyId = companyId && !TABLES_WITHOUT_COMPANY_ID.has(table)
 
     const { data, error } = hasCompanyId
       ? await supabase.from(table).select('*').eq('company_id', companyId as string)
